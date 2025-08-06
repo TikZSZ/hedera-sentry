@@ -399,12 +399,11 @@ export async function analyzeRepo ( repoUrl: string, client: AIClient, options: 
     {
       aiSelectedSet.add( normalizedSelection );
     }
-  }
+  } 
 
-  // // 2. Initialize the Chunker
-  // const chunker = new UniversalChunker( CHUNKER_CONFIG );
+  updateState('selecting_files', `AI selected ${aiSelectedSet.size} files for analysis.`);
 
-  // 3. Initialize the Report structure (exactly as in the original)
+  // 2. Initialize the Report structure (exactly as in the original)
   const report: Report = {
     runId,
     summary: {
@@ -432,6 +431,8 @@ export async function analyzeRepo ( repoUrl: string, client: AIClient, options: 
     details: [] as any[],
   };
 
+  updateState('chunking_and_scoring', 'Starting file chunking process...');
+
   // --- Main Processing and Aggregation Loop (exactly as in the original) ---
   for ( const f of allFiles )
   {
@@ -448,7 +449,7 @@ export async function analyzeRepo ( repoUrl: string, client: AIClient, options: 
       const fileExtension = path.extname( f.absolute );
       updateState && updateState('chunking_and_scoring', `Chunking ${path.normalize( f.relative ) }...`);
       // --- DYNAMIC STRATEGY SELECTION ---
-      const strategy = getStrategyForExtension(f.relative);
+      const strategy = getStrategyForExtension(path.basename( f.relative ));
 
       // If we don't have a strategy for this file type, we skip it.
       if ( !strategy )
@@ -502,14 +503,14 @@ export async function analyzeRepo ( repoUrl: string, client: AIClient, options: 
     netSavingsPercentage: ( ( tokenSummary.originalTokens_SelectedFiles - tokenSummary.finalTokens_SentToAI ) / ( tokenSummary.originalTokens_SelectedFiles || 1 ) * 100 ).toFixed( 1 ) + '%',
   };
   tokenSummary[ 'contextOverheadPercentage' ] = ( ( tokenSummary.breakdown.contextHeaderTokens / ( tokenSummary.finalTokens_SentToAI || 1 ) ) * 100 ).toFixed( 1 ) + '%';
-  report.summary.oversizedSummary.files = [ ...new Set( report.summary.oversizedSummary.files ) ]; // Unique files
-  updateState && updateState('chunking_and_scoring', `Chunking complete`);
+  report.summary.oversizedSummary.files = [ ...new Set( report.summary.oversizedSummary.files ) ]; 
+  // Unique files
   // 4. Save the machine-readable report
   saveReport( repoName, runId, 'file-selection', {
     runId, "Tokens_AllProjectFiles": report.summary.tokenSummary.originalTokens_AllProjectFiles,
     "Tokens_SelectedFiles": report.summary.tokenSummary.originalTokens_AllProjectFiles, ...result
   } )
-
+  updateState('chunking_and_scoring', 'Chunking complete. Aggregating results...');
   saveReport( repoName, runId, 'chunking-analysis', report );
   // 5. Optionally print the human-readable report
   if ( printReport )
@@ -520,14 +521,14 @@ export async function analyzeRepo ( repoUrl: string, client: AIClient, options: 
   // 6. Return the data the scorer needs
   return report;
 }
-type status = 'preparing' | 'selecting_files' | 'chunking_and_scoring' | 'final_review' | 'complete' | 'error';
-type updateState = (status: status, message: string) => void
+type Status = 'preparing' | 'selecting_files' | 'chunking_and_scoring' | 'final_review' | 'complete' | 'error';
+type updateState = (status: Status, message: string) => void
+
 export async function runAnalysisAndScoring ( repoUrl: string, client: AIClient, readmeOverride: string = '', runId: string = '',updateState?:updateState
  )
 {
   // 1. Run the analysis pipeline to get the processed data.
   let report: Report
-  updateState && updateState('preparing', `Setting up pipeline`);
 
   const repoName = path.basename( repoUrl, '.git' );
   const reportPath = path.join( APP_CONFIG.REPORTS_DIR, repoName, `run-${runId}`, 'chunking-analysis.json' );
@@ -539,6 +540,7 @@ export async function runAnalysisAndScoring ( repoUrl: string, client: AIClient,
     report = JSON.parse( content );
   } else
   {
+    updateState && updateState('selecting_files', 'Distilling README and identifying project context...');
     report = await analyzeRepo( repoUrl, client, { printReport: false }, readmeOverride,runId,updateState
     );
   }
@@ -578,12 +580,14 @@ export async function runAnalysisAndScoring ( repoUrl: string, client: AIClient,
     vendedCodeFlagged: report.flaggedForReview || [],
   };
 
+  updateState('chunking_and_scoring', 'Preparing to score files...');
   // Initialize and run the scoring engine
   const scorer = new ScoringEngine( client, { domain: report.projectContext.primary_domain, stack: report.projectContext.primary_stack, projectEssence: report.projectContext.project_essence }, report.runId );
 
-  updateState && updateState('chunking_and_scoring', 'Scoring files');
+  updateState('chunking_and_scoring', 'Scoring files');
   const preliminaryScoreCard = await scorer.generateScorecard( report.details, report.summary.repo, warnings, false );
   preliminaryScoreCard.scoredFiles.sort( ( a, b ) => b.impactScore - a.impactScore ); // descending
+  updateState('chunking_and_scoring', 'Scoring Complete');
 
   // 4. Save the preliminaryScoreCard
   saveReport( report.summary.repo, report.runId, 'project-scorecard', preliminaryScoreCard );

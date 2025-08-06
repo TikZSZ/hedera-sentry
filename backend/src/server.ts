@@ -12,18 +12,38 @@ import type { PreliminaryProjectScorecard, ProjectScorecard } from './scoring.in
 // --- In-Memory State Management ---
 // We'll use a simple Map to store the state of each analysis run.
 // For a production app, you would replace this with Redis or a database.
-const analysisStore = new Map<string, RunState>();
-
-interface RunState
-{
-    status: 'preparing' | 'selecting_files' | 'chunking_and_scoring' | 'final_review' | 'complete' | 'error';
+interface LogEntry {
+    id: number;
     message: string;
+    timestamp: string;
+}
+
+interface RunState {
+    status: 'preparing' | 'selecting_files' | 'chunking_and_scoring' | 'final_review' | 'complete' | 'error';
+    // REMOVED: message: string;
+    logHistory: LogEntry[]; // NEW: The source of truth for progress
     repoUrl: string;
     repoName: string;
     runId: string;
-    preliminaryScorecard?: PreliminaryProjectScorecard;
+    preliminaryScorecard?: ProjectScorecard;
     finalScorecard?: ProjectScorecard;
     error?: string;
+}
+
+const analysisStore = new Map<string, RunState>();
+
+// --- NEW: A centralized state updater function ---
+function updateRunState(runId: string, status: RunState['status'], message: string) {
+    const currentState = analysisStore.get(runId);
+    if (currentState) {
+        currentState.status = status;
+        // Add the new message to the log history.
+        currentState.logHistory.push({
+            id: currentState.logHistory.length + 1,
+            message,
+            timestamp: new Date().toLocaleTimeString(),
+        });
+    }
 }
 
 // --- Main Application Setup ---
@@ -41,46 +61,29 @@ async function startBackgroundAnalysis ( runId: string, repoUrl: string, descrip
         const client = createAIClient( ALL_MODELS[ 'gpt-4o-mini' ] ); // Client for initial steps
         const scoreClient = createAIClient( ALL_MODELS[ 'gemini-2.5-flash' ] ); // Client for final review
 
-        // Step 1 & 2: Prepare and Select Files
-        // `analyzeRepo` now needs to be modified to accept the runId and update the state.
-        const stateUpdater = ( status: RunState[ 'status' ], message: string ) =>
-        {
-            const currentState = analysisStore.get( runId );
-            if ( currentState )
-            {
-                currentState.status = status;
-                currentState.message = message;
-            }
-        };
-
-        // `analyzeRepo` will now perform steps 1-3 (prepare, select, chunk)
-        // and save the preliminary scorecard to our store.
-        const preliminaryScorecard = await runAnalysisAndScoring( repoUrl, client, description, runId, stateUpdater );
+        const preliminaryScorecard = await runAnalysisAndScoring( repoUrl, client, description, runId, (status,message)=>{
+            updateRunState(runId,status,message)
+        } );
 
         // Update state with the preliminary result
         const currentState = analysisStore.get( runId )!;
-        currentState.preliminaryScorecard = preliminaryScorecard;
-        currentState.status = 'final_review';
-        currentState.message = 'Performing final holistic review...';
+        currentState.preliminaryScorecard = preliminaryScorecard as any;
 
+        updateRunState(runId, 'final_review', 'Performing final holistic review...');
         // Step 4: Run the Final Review
         const { calibratedScorecard } = await runFinalReview( repoUrl, scoreClient, runId );
 
         // Step 5: Finalize the state
         currentState.finalScorecard = calibratedScorecard;
-        currentState.status = 'complete';
-        currentState.message = 'Analysis complete!';
+        updateRunState(runId, 'complete', '✅ Analysis complete!');
 
     } catch ( error: any )
     {
-        console.error( `Error during analysis for runId ${runId}:`, error );
-        const currentState = analysisStore.get( runId );
-        if ( currentState )
-        {
-            currentState.status = 'error';
-            currentState.message = 'An unexpected error occurred.';
-            currentState.error = error.message;
-        }
+        console.error(`Error during analysis for runId ${runId}:`, error);
+        const errorMessage = `❌ Error: ${error.message}`;
+        updateRunState(runId, 'error', errorMessage);
+        const currentState = analysisStore.get(runId)!;
+        currentState.error = error.message;
     }
 }
 
@@ -104,21 +107,18 @@ app.post( '/analysis', ( req, res ) =>
     const repoName = path.basename( repoUrl, '.git' );
 
     // Create the initial state object and store it.
+    const initialMessage = 'Initiating analysis pipeline...';
     const initialState: RunState = {
         runId,
         repoUrl,
         repoName,
         status: 'preparing',
-        message: 'Analysis job has been queued. Preparing repository...',
+        logHistory: [{ id: 1, message: initialMessage, timestamp: new Date().toLocaleTimeString() }],
     };
-    analysisStore.set( runId, initialState );
-
-    // Start the long-running analysis in the background.
-    // We DON'T await this call. This is the key to making the API responsive.
-    startBackgroundAnalysis( runId, repoUrl );
-
-    // Immediately return the runId to the client.
-    res.status( 202 ).json( { runId } );
+    analysisStore.set(runId, initialState);
+    
+    startBackgroundAnalysis(runId, repoUrl);
+    res.status(202).json({ runId });
 } );
 
 /**
@@ -128,23 +128,19 @@ app.post( '/analysis', ( req, res ) =>
 app.get( '/analysis/:runId/status', ( req, res ) =>
 {
     const { runId } = req.params;
-    const state = analysisStore.get( runId );
 
-    if ( !state )
-    {
-        return res.status( 404 ).json( { error: 'Analysis run not found.' } );
-    }
+    const state = analysisStore.get(runId);
 
-    // Return the current state. The frontend can use this to display
-    // the status message, and if the status is 'complete', it can display the report.
-    res.status( 200 ).json( {
+    if (!state) return res.status(404).json({ error: 'Analysis run not found.' });
+
+    // The endpoint now returns the full log history every time.
+    res.status(200).json({
         runId: state.runId,
         status: state.status,
-        message: state.message,
-        // Only send the final report when it's ready.
+        logHistory: state.logHistory, // Send the whole history
         report: state.status === 'complete' ? state.finalScorecard : null,
         error: state.status === 'error' ? state.error : null,
-    } );
+    });
 } );
 
 // --- Server Initialization ---
