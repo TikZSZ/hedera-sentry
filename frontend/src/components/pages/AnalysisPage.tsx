@@ -64,10 +64,10 @@ export default function AnalysisPage ()
   }
 
 
-  // if ( error )
-  // {
-  //   return <ErrorComponent message={`Server Error Occurred${error}`} />;
-  // }
+  if ( error )
+  {
+    return <ErrorComponent message={`${error}`} />;
+  }
 
   // if(!report){
   //   return <ErrorComponent message='Something went wrong'  />;
