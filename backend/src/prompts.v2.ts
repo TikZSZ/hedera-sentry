@@ -29,6 +29,7 @@ Avoid including language specific config files since the pipeline already consid
 
 **Critical Rules:**
 -   **Vended Code:** If you suspect a folder is a third-party library, mark it with a comment: 'src/sdk/ # Potentially vended code'.
+- Return Full path to file as exactly shown in File Structure DO NOT omit any file path parts else it will be invalid
 
 **Project Context:**
 - Domain: {{primary_domain}}

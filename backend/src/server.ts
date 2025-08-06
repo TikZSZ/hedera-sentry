@@ -146,9 +146,9 @@ app.get( '/analysis/:runId/status', ( req, res ) =>
 // --- Server Initialization ---
 async function startServer ()
 {
-    await initializeTokenizer(); // Initialize tokenizer once on server start
-    app.use(express.static('public'))
-    app.get(/(.*)/, (req, res) => res.sendFile(path.resolve('public', 'index.html')));
+    initializeTokenizer(); // Initialize tokenizer once on server start
+    // app.use(express.static('public'))
+    // app.get(/(.*)/, (req, res) => res.sendFile(path.resolve('public', 'index.html')));
     const server = app.listen( PORT, () =>
     {
         console.log( `Hedera Sentry AI server is running on http://localhost:${PORT}` );

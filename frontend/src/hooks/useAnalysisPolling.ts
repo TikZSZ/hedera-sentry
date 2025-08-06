@@ -5,7 +5,7 @@ import type { ProjectScorecard } from '@/types'; // Assuming your type definitio
 
 // Configuration: API base URL and polling interval
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:10000';
-const POLLING_INTERVAL_MS = 2000; // Poll every 2 seconds for a responsive feel
+const POLLING_INTERVAL_MS = 5000; // Poll every 2 seconds for a responsive feel
 
 // --- Type Definitions ---
 

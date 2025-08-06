@@ -25,6 +25,10 @@ export function initializeTokenizer() {
  * @returns The number of tokens.
  */
 export function estimateTokens(text: string): number {
+    // default to less expensive tokenizer in cloud
+    if(process.env['NODE_ENV']==='production'){
+        return Math.ceil(text.length/4)
+    }
     if (!encoding) {
         throw new Error("Tokenizer has not been initialized. Please call initializeTokenizer() first.");
     }

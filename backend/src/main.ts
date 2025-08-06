@@ -202,7 +202,7 @@ export async function getRelevantFiles (
     .replace( '{{primary_stack}}', ( domainInfo.primary_stack || [] ).join( ', ' ) )
     .replace( '{{core_concepts}}', ( domainInfo.core_concepts || [] ).join( ', ' ) )
     .replace( '{{{{project_essence}}}}', ( domainInfo.project_essence || '' ) )
-
+  // console.log(fileSelectionPrompt)
   const selectionRes = await client.chatCompletion( { messages: [ { role: 'user', content: fileSelectionPrompt } ], generationParams: { jsonOutput: false } } );
   // const rawSelections = ( selectionRes.content ?? '' ).split( '\n' ).map( l => l.trim() ).filter( Boolean );
   console.log( selectionRes.content )
@@ -361,13 +361,13 @@ function printAnalysisReport ( report: Report ): void
  * @param options Optional parameters like whether to print the report.
  * @returns A promise that resolves to the detailed chunking data ready for the scoring engine.
  */
-export async function analyzeRepo ( repoUrl: string, client: AIClient, options: { printReport?: boolean, } = {}, readmeOverride = '', runId: string = '',updateState?:updateState )
+export async function analyzeRepo ( repoUrl: string, client: AIClient, options: { printReport?: boolean, } = {}, readmeOverride = '', runId: string = '', updateState?: updateState )
 {
   const { printReport = true } = options; // Default to printing the report
 
   const repoName = path.basename( repoUrl, '.git' );
   const localPath = path.join( APP_CONFIG.LOCAL_REPO_DIR, repoName );
-  updateState && updateState('preparing', `Cloning ${repoName}...`);
+  updateState && updateState( 'preparing', `Cloning ${repoName}...` );
   await cloneRepo( repoUrl, localPath );
 
   const allFiles = walkFileTree( localPath ); // Assuming improved walkFileTree
@@ -380,28 +380,52 @@ export async function analyzeRepo ( repoUrl: string, client: AIClient, options: 
   runId = runId || new Date().toISOString();
 
   // 1. Get relevant files
-  updateState && updateState('selecting_files','Selecting files')
+  updateState && updateState( 'selecting_files', 'Selecting files' )
   const result = await getRelevantFiles( repoName, readme, fileTreeStr, client );
   // save the file selection results
 
   const { selections: aiSelections, usage: aiUsage, projectContext } = result
-  const aiSelectedSet = new Set<string>();
-  const allFilesNormalized = allFiles.map( f => path.normalize( f.relative ) );
-  for ( const selection of aiSelections )
-  {
-    const normalizedSelection = path.normalize( selection );
-    if ( allFilesNormalized.some( f => f.startsWith( normalizedSelection + path.sep ) ) )
-    {
-      allFilesNormalized
-        .filter( f => f.startsWith( normalizedSelection + path.sep ) )
-        .forEach( f => aiSelectedSet.add( f ) );
-    } else
-    {
-      aiSelectedSet.add( normalizedSelection );
-    }
-  } 
+  // const aiSelectedSet = new Set<string>();
+  // const allFilesNormalized = allFiles.map( f => path.normalize( f.relative ) );
+  // for ( const selection of aiSelections )
+  // {
+  //   const normalizedSelection = path.normalize( selection );
+  //   if ( allFilesNormalized.some( f => f.startsWith( normalizedSelection + path.sep ) ) )
+  //   {
+  //     allFilesNormalized
+  //       .filter( f => f.startsWith( normalizedSelection + path.sep ) )
+  //       .forEach( f => aiSelectedSet.add( f ) );
+  //   } else
+  //   {
+  //     aiSelectedSet.add( normalizedSelection );
+  //   }
+  // }
+  // --- NEW, MORE ROBUST SELECTION LOGIC ---
+    const aiSelectedSet = new Set<string>();
+    
+    // Normalize all file paths from the repo ONCE.
+    const allRepoFilePaths = allFiles.map(f => path.normalize(f.relative));
 
-  updateState('selecting_files', `AI selected ${aiSelectedSet.size} files for analysis.`);
+    for (const selection of aiSelections) {
+        const normalizedSelection = path.normalize(selection);
+        
+        let foundMatch = false;
+        for (const repoFilePath of allRepoFilePaths) {
+            // Check for an exact match OR if the repo path is a file inside a selected directory
+            if (repoFilePath === normalizedSelection || repoFilePath.startsWith(normalizedSelection + path.sep)) {
+                aiSelectedSet.add(repoFilePath);
+                foundMatch = true;
+            }
+        }
+        
+        // If it wasn't a directory and we found no exact match, log a warning.
+        // This helps debug when the AI hallucinates a path.
+        if (!foundMatch && !selection.endsWith('/')) {
+             console.warn(`[WARNING] AI selected a file that was not found in the repository: ${selection}`);
+        }
+    }
+
+  updateState( 'selecting_files', `AI selected ${aiSelectedSet.size} files for analysis.` );
 
   // 2. Initialize the Report structure (exactly as in the original)
   const report: Report = {
@@ -431,7 +455,7 @@ export async function analyzeRepo ( repoUrl: string, client: AIClient, options: 
     details: [] as any[],
   };
 
-  updateState('chunking_and_scoring', 'Starting file chunking process...');
+  updateState( 'chunking_and_scoring', 'Starting file chunking process...' );
 
   // --- Main Processing and Aggregation Loop (exactly as in the original) ---
   for ( const f of allFiles )
@@ -447,9 +471,9 @@ export async function analyzeRepo ( repoUrl: string, client: AIClient, options: 
     if ( aiSelectedSet.has( path.normalize( f.relative ) ) )
     {
       const fileExtension = path.extname( f.absolute );
-      updateState && updateState('chunking_and_scoring', `Chunking ${path.normalize( f.relative ) }...`);
+      updateState && updateState( 'chunking_and_scoring', `Chunking ${path.normalize( f.relative )}...` );
       // --- DYNAMIC STRATEGY SELECTION ---
-      const strategy = getStrategyForExtension(path.basename( f.relative ));
+      const strategy = getStrategyForExtension( path.basename( f.relative ) );
 
       // If we don't have a strategy for this file type, we skip it.
       if ( !strategy )
@@ -503,14 +527,14 @@ export async function analyzeRepo ( repoUrl: string, client: AIClient, options: 
     netSavingsPercentage: ( ( tokenSummary.originalTokens_SelectedFiles - tokenSummary.finalTokens_SentToAI ) / ( tokenSummary.originalTokens_SelectedFiles || 1 ) * 100 ).toFixed( 1 ) + '%',
   };
   tokenSummary[ 'contextOverheadPercentage' ] = ( ( tokenSummary.breakdown.contextHeaderTokens / ( tokenSummary.finalTokens_SentToAI || 1 ) ) * 100 ).toFixed( 1 ) + '%';
-  report.summary.oversizedSummary.files = [ ...new Set( report.summary.oversizedSummary.files ) ]; 
+  report.summary.oversizedSummary.files = [ ...new Set( report.summary.oversizedSummary.files ) ];
   // Unique files
   // 4. Save the machine-readable report
   saveReport( repoName, runId, 'file-selection', {
     runId, "Tokens_AllProjectFiles": report.summary.tokenSummary.originalTokens_AllProjectFiles,
     "Tokens_SelectedFiles": report.summary.tokenSummary.originalTokens_AllProjectFiles, ...result
   } )
-  updateState('chunking_and_scoring', 'Chunking complete. Aggregating results...');
+  updateState( 'chunking_and_scoring', 'Chunking complete. Aggregating results...' );
   saveReport( repoName, runId, 'chunking-analysis', report );
   // 5. Optionally print the human-readable report
   if ( printReport )
@@ -522,10 +546,10 @@ export async function analyzeRepo ( repoUrl: string, client: AIClient, options: 
   return report;
 }
 type Status = 'preparing' | 'selecting_files' | 'chunking_and_scoring' | 'final_review' | 'complete' | 'error';
-type updateState = (status: Status, message: string) => void
+type updateState = ( status: Status, message: string ) => void
 
-export async function runAnalysisAndScoring ( repoUrl: string, client: AIClient, readmeOverride: string = '', runId: string = '',updateState?:updateState
- )
+export async function runAnalysisAndScoring ( repoUrl: string, client: AIClient, readmeOverride: string = '', runId: string = '', updateState?: updateState
+)
 {
   // 1. Run the analysis pipeline to get the processed data.
   let report: Report
@@ -534,14 +558,14 @@ export async function runAnalysisAndScoring ( repoUrl: string, client: AIClient,
   const reportPath = path.join( APP_CONFIG.REPORTS_DIR, repoName, `run-${runId}`, 'chunking-analysis.json' );
   if ( fs.existsSync( reportPath ) )
   {
-    updateState && updateState('selecting_files', 'Distilling README and identifying project context...');
+    updateState && updateState( 'selecting_files', 'Distilling README and identifying project context...' );
     console.log( "Running from runId path", reportPath )
     const content = fs.readFileSync( reportPath, 'utf8' );
     report = JSON.parse( content );
   } else
   {
-    updateState && updateState('selecting_files', 'Distilling README and identifying project context...');
-    report = await analyzeRepo( repoUrl, client, { printReport: false }, readmeOverride,runId,updateState
+    updateState && updateState( 'selecting_files', 'Distilling README and identifying project context...' );
+    report = await analyzeRepo( repoUrl, client, { printReport: false }, readmeOverride, runId, updateState
     );
   }
 
@@ -567,11 +591,14 @@ export async function runAnalysisAndScoring ( repoUrl: string, client: AIClient,
   console.log( `  - Context Header Overhead       : ${report.summary.tokenSummary.contextOverheadPercentage} of final tokens` );
 
   // Step 3: Ask user for confirmation
-  const answer = await promptUser( '\nContinue to scoring? (yes/no): ' );
-  if ( answer.toLowerCase() !== 'yes' )
+  if ( process.env[ 'NODE_ENV' ] !== 'production' )
   {
-    console.log( '\n❌ Scoring aborted by user.' );
-    return;
+    const answer = await promptUser( '\nContinue to scoring? (yes/no): ' );
+    if ( answer.toLowerCase() !== 'yes' )
+    {
+      console.log( '\n❌ Scoring aborted by user.' );
+      return;
+    }
   }
 
   // Step 4: Proceed with scoring
@@ -580,14 +607,14 @@ export async function runAnalysisAndScoring ( repoUrl: string, client: AIClient,
     vendedCodeFlagged: report.flaggedForReview || [],
   };
 
-  updateState('chunking_and_scoring', 'Preparing to score files...');
+  updateState( 'chunking_and_scoring', 'Preparing to score files...' );
   // Initialize and run the scoring engine
   const scorer = new ScoringEngine( client, { domain: report.projectContext.primary_domain, stack: report.projectContext.primary_stack, projectEssence: report.projectContext.project_essence }, report.runId );
 
-  updateState('chunking_and_scoring', 'Scoring files');
+  updateState( 'chunking_and_scoring', 'Scoring files' );
   const preliminaryScoreCard = await scorer.generateScorecard( report.details, report.summary.repo, warnings, false );
   preliminaryScoreCard.scoredFiles.sort( ( a, b ) => b.impactScore - a.impactScore ); // descending
-  updateState('chunking_and_scoring', 'Scoring Complete');
+  updateState( 'chunking_and_scoring', 'Scoring Complete' );
 
   // 4. Save the preliminaryScoreCard
   saveReport( report.summary.repo, report.runId, 'project-scorecard', preliminaryScoreCard );
