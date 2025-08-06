@@ -1,0 +1,11 @@
+cd node_modules/tree-sitter/
+
+mkdir -p prebuilds/linux-x64/
+
+# This command says: "Create a link at the location 'prebuilds/linux-x64/tree-sitter.node'
+# that points to the actual file at '../../build/Release/tree_sitter_runtime_binding.node'"
+ln -s ../../build/Release/tree_sitter_runtime_binding.node prebuilds/linux-x64/tree-sitter.node
+
+
+cd ../../ # Go back to your project root
+bun src/server.ts
