@@ -8,7 +8,7 @@ export const APP_CONFIG = {
   REPORTS_DIR: path.join("reports","analysis_reports_scorer_hedera_sol"),
   CACHE_DIR: './.cache', // For caching AI file selections
   LOCAL_REPO_DIR: 'repo_cache',
-  FORCE_SIMPLE_STRATEGY: process.env.FORCE_SIMPLE_STRATEGY === 'true' || false,
+  FORCE_SIMPLE_STRATEGY: process.env.FORCE_SIMPLE_STRATEGY === 'true' || true,
 };
 
 export type DossierStrategy = 'global_top_impact' | 'top_impact_per_file';
@@ -24,8 +24,9 @@ export const CHUNKER_CONFIG: ChunkingConfig = {
   contextItemLimit: 15,
   boilerplateThreshold: 0.6,
   maxContextTokens: 200,
+  
 };
-
+export const MAX_TOKENS_PER_FILE_ALLOWED_LIMIT = 8000
 export const MAX_BATCH_BUDGET = 5100
 
 export const DOSSIER_BUDGET = 16000

@@ -13,7 +13,7 @@ import
   SCORING_PROMPT_TEMPLATE
 } from './prompts.v2';
 
-import type { AIScore, ScoredChunkGroup, ScoredFile, ProjectScorecard, FinalReviewAnalysis, Usage, PreliminaryProjectScorecard } from './scoring.interfaces';
+import type { AIScore, ScoredChunkGroup, ScoredFile, ProjectScorecard, FinalReviewAnalysis, Usage, PreliminaryProjectScorecard, ProjectContext } from './scoring.interfaces';
 import { OpenAI } from "openai"
 import { safeJsonChatCompletion } from './utils';
 import type { AIClient } from './ai_client';
@@ -34,7 +34,7 @@ export class ScoringEngine
   private runId: string
   private client: AIClient; // No longer `OpenAI`, but our universal client
 
-  constructor( client: AIClient, private projectContext: { domain: string, stack: string[], projectEssence: string }, runId: string, )
+  constructor( client: AIClient, private projectContext: ProjectContext, runId: string, )
   {
     this.projectContext = projectContext;
     this.runId = runId
@@ -45,7 +45,7 @@ export class ScoringEngine
    * Scores a single file by processing all its chunk groups.
    * Implements "Intra-File Context Propagation".
    */
-  private async scoreFile ( fileGroup: FileChunkGroup, interFileContext: string, debug: boolean = false // Add the debug flag, default to false
+  async scoreFile ( fileGroup: FileChunkGroup, interFileContext: string, debug: boolean = false // Add the debug flag, default to false
   ): Promise<ScoredFile>
   {
     console.log( `Scoring file: ${fileGroup.filePath}...` );
@@ -413,13 +413,6 @@ export class ScoringEngine
       scoredFiles.push( singleResult );
     }
 
-    // OLD LOGIC NO BATCHING
-    // for ( const fileGroup of dataForScorer )
-    // {
-    //   const scoredFile = await this.scoreFile( fileGroup, interFileContext, debug );
-    //   scoredFiles.push( scoredFile );
-    // }
-
     // --- AGGREGATION LOGIC ---
     let totalTokenWeight = 0;
     let weightedComplexity = 0;
@@ -482,10 +475,6 @@ export class ScoringEngine
       best_practices: totalTokenWeight > 0 ? weightedBestPractices / totalTokenWeight : 0,
     };
 
-    // THIS IS THE PART TO REPLACE.
-    // REMOVE a line like this: const finalProjectScore = totalTokenWeight > 0 ? totalWeightedImpact / totalTokenWeight : 0;
-
-    // REPLACE IT with this logic, which uses the finalProfile we just calculated.
     const preliminaryProjectScore =
       ( finalProfile.complexity * 0.40 ) +      // 40% weight on complexity
       ( finalProfile.quality * 0.25 ) +         // 25% weight on quality
@@ -509,17 +498,6 @@ export class ScoringEngine
       scoredFiles,
     };
 
-    // const finalReview = await this.performFinalReview( preliminaryScorecard );
-
-    // const finalCalibratedScore = preliminaryProjectScore * finalReview.multiplier;
-
-    // preliminaryScorecard.finalProjectScore = finalCalibratedScore
-
-    // // --- RETURN THE FINAL, CALIBRATED SCORECARD ---
-    // return {
-    //   ...preliminaryScorecard,
-    //   finalReview: finalReview as any
-    // };
     return preliminaryScorecard
   }
 

@@ -4,7 +4,7 @@ import fs from 'fs';
 import { config } from 'dotenv';
 
 // Import our modularized code
-import { APP_CONFIG, CHUNKER_CONFIG, AI_CONFIG, type DossierStrategy, DOSSIER_BUDGET } from './config';
+import { APP_CONFIG, CHUNKER_CONFIG, AI_CONFIG, type DossierStrategy, DOSSIER_BUDGET, MAX_TOKENS_PER_FILE_ALLOWED_LIMIT } from './config';
 import { cloneRepo, walkFileTree, getParser, saveReport, promptUser } from './utils';
 import { UniversalChunker } from './chunker/chunker';
 
@@ -12,12 +12,14 @@ import { DOMAIN_IDENTIFICATION_PROMPT } from "./prompts"
 import { FILE_SELECTION_PROMPT_TEMPLATE } from "./prompts.v2"
 
 import { ScoringEngine } from './scorer'; // Import the new engine
-import type { ProjectScorecard } from './scoring.interfaces';
+import type { ProjectScorecard, ScoredFile } from './scoring.interfaces';
 import { createAIClient, type AIClient } from './ai_client';
 import { ALL_MODELS } from './models.config';
 import { initializeTokenizer, closeTokenizer, estimateTokens } from './tokenizer'; // Import the new initializer
 import type { FileChunkGroup } from './chunker/chunker.interface';
 import { getStrategyForExtension } from './chunker/strategy.manager';
+import type { RunState, updateState } from './server.interface';
+import { getRepoMetadata } from './repo.metadata';
 
 interface ProjectContext
 {
@@ -364,13 +366,8 @@ function printAnalysisReport ( report: Report ): void
 export async function analyzeRepo ( repoUrl: string, client: AIClient, options: { printReport?: boolean, } = {}, readmeOverride = '', runId: string = '', updateState?: updateState )
 {
   const { printReport = true } = options; // Default to printing the report
+  const { allFiles, repoName } = await getRepoMetadata( repoUrl, updateState )
 
-  const repoName = path.basename( repoUrl, '.git' );
-  const localPath = path.join( APP_CONFIG.LOCAL_REPO_DIR, repoName );
-  updateState && updateState( 'preparing', `Cloning ${repoName}...` );
-  await cloneRepo( repoUrl, localPath );
-
-  const allFiles = walkFileTree( localPath ); // Assuming improved walkFileTree
   const fileTreeStr = allFiles.map( f => f.relative ).join( '\n' );
 
   const readmePath = allFiles.find( f => f.relative.toLowerCase() === 'readme.md' )?.absolute;
@@ -385,7 +382,7 @@ export async function analyzeRepo ( repoUrl: string, client: AIClient, options: 
   // save the file selection results
 
   const { selections: aiSelections, usage: aiUsage, projectContext } = result
-  // const aiSelectedSet = new Set<string>();
+  const aiSelectedSet = new Set<string>();
   // const allFilesNormalized = allFiles.map( f => path.normalize( f.relative ) );
   // for ( const selection of aiSelections )
   // {
@@ -401,29 +398,62 @@ export async function analyzeRepo ( repoUrl: string, client: AIClient, options: 
   //   }
   // }
   // --- NEW, MORE ROBUST SELECTION LOGIC ---
-    const aiSelectedSet = new Set<string>();
-    
-    // Normalize all file paths from the repo ONCE.
-    const allRepoFilePaths = allFiles.map(f => path.normalize(f.relative));
+  // const aiSelectedSet = new Set<string>();
 
-    for (const selection of aiSelections) {
-        const normalizedSelection = path.normalize(selection);
-        
-        let foundMatch = false;
-        for (const repoFilePath of allRepoFilePaths) {
-            // Check for an exact match OR if the repo path is a file inside a selected directory
-            if (repoFilePath === normalizedSelection || repoFilePath.startsWith(normalizedSelection + path.sep)) {
-                aiSelectedSet.add(repoFilePath);
-                foundMatch = true;
-            }
-        }
-        
-        // If it wasn't a directory and we found no exact match, log a warning.
-        // This helps debug when the AI hallucinates a path.
-        if (!foundMatch && !selection.endsWith('/')) {
-             console.warn(`[WARNING] AI selected a file that was not found in the repository: ${selection}`);
-        }
+  // // Normalize all file paths from the repo ONCE.
+  // const allRepoFilePaths = allFiles.map(f => path.normalize(f.relative));
+
+  // for (const selection of aiSelections) {
+  //     const normalizedSelection = path.normalize(selection);
+
+  //     let foundMatch = false;
+  //     for (const repoFilePath of allRepoFilePaths) {
+  //         // Check for an exact match OR if the repo path is a file inside a selected directory
+  //         if (repoFilePath === normalizedSelection || repoFilePath.startsWith(normalizedSelection + path.sep)) {
+  //             aiSelectedSet.add(repoFilePath);
+  //             foundMatch = true;
+  //         }
+  //     }
+
+  //     // If it wasn't a directory and we found no exact match, log a warning.
+  //     // This helps debug when the AI hallucinates a path.
+  //     if (!foundMatch && !selection.endsWith('/')) {
+  //          console.warn(`[WARNING] AI selected a file that was not found in the repository: ${selection}`);
+  //     }
+  // }
+
+  const allRepoFilePaths = allFiles.map( f => f.relative ); // These are the ground truth paths
+
+  for ( const selection of aiSelections )
+  {
+    const normalizedSelection = path.normalize( selection );
+
+    // --- NEW, FUZZY MATCHING LOGIC ---
+    // Find all files in our repo that END WITH the path the AI gave us.
+    const potentialMatches = allRepoFilePaths.filter( repoPath =>
+      repoPath.endsWith( normalizedSelection )
+    );
+
+    if ( potentialMatches.length === 1 )
+    {
+      // Perfect, unambiguous match. Add the full, correct path.
+      aiSelectedSet.add( potentialMatches[ 0 ] );
+    } else if ( potentialMatches.length > 1 )
+    {
+      // Ambiguous match (e.g., AI said 'index.ts', and there are 5 of them).
+      // We can either take the shortest one, or just log a warning and skip.
+      // Let's log and take the shortest path as a heuristic.
+      console.warn( `[WARNING] Ambiguous AI selection '${selection}' matched multiple files. Choosing the shortest path.` );
+      const shortestMatch = potentialMatches.sort( ( a, b ) => a.length - b.length )[ 0 ];
+      aiSelectedSet.add( shortestMatch );
+    } else
+    {
+      // No match found.
+      console.warn( `[WARNING] AI selected a file that could not be matched in the repository: ${selection}` );
     }
+  }
+
+  console.log( `AI selected ${aiSelections.length} paths, which resolved to ${aiSelectedSet.size} unique, existing files.` );
 
   updateState( 'selecting_files', `AI selected ${aiSelectedSet.size} files for analysis.` );
 
@@ -545,8 +575,7 @@ export async function analyzeRepo ( repoUrl: string, client: AIClient, options: 
   // 6. Return the data the scorer needs
   return report;
 }
-type Status = 'preparing' | 'selecting_files' | 'chunking_and_scoring' | 'final_review' | 'complete' | 'error';
-type updateState = ( status: Status, message: string ) => void
+
 
 export async function runAnalysisAndScoring ( repoUrl: string, client: AIClient, readmeOverride: string = '', runId: string = '', updateState?: updateState
 )
@@ -597,7 +626,7 @@ export async function runAnalysisAndScoring ( repoUrl: string, client: AIClient,
     if ( answer.toLowerCase() !== 'yes' )
     {
       console.log( '\n❌ Scoring aborted by user.' );
-      return;
+      throw new Error( '\n❌ Server aborted request.' )
     }
   }
 
@@ -668,13 +697,45 @@ export async function runFinalReview ( repoUrl: string, client: AIClient, runId:
 
   // --- Save the Versioned Report ---
   const reviewTimestamp = new Date().toISOString().replace( /[:.]/g, '-' );
-  const reportType = `final-reviews2/calibrated-scorecard-${reviewTimestamp}`;
-
+  const calibratedScorecardId = `calibrated-scorecard-${reviewTimestamp}`
+  const reportType = `final-reviews2/${calibratedScorecardId}`;
   saveReport( repoName, runId, reportType, calibratedScorecard );
-
-  return { calibratedScorecard, calibratedScorecardId: `calibrated-scorecard-${reviewTimestamp}` }
+  return { calibratedScorecard, calibratedScorecardId ,calibratedScorecardPath:path.join( APP_CONFIG.REPORTS_DIR, repoName, `run-${runId}`, 'final-reviews2',calibratedScorecardId ) }
 }
 
+/**
+ * NEW: A dedicated function to chunk and score a single file on demand.
+ * @param state The current RunState of the analysis.
+ * @param file The file object ({ relative, absolute }) to be scored.
+ * @returns A promise that resolves to the ScoredFile object.
+ */
+export async function scoreSingleFile ( state: RunState, client: AIClient, file: { relative: string, absolute: string } ): Promise<ScoredFile>
+{
+  const fileExtension = path.extname( file.absolute );
+  const strategy = getStrategyForExtension( fileExtension );
+
+  if ( !strategy )
+  {
+    throw new Error( `No language strategy found for file type: ${fileExtension}` );
+  }
+
+  const code = fs.readFileSync( file.absolute, 'utf-8' );
+
+  // --- Chunking ---
+  const chunker = new UniversalChunker( strategy, estimateTokens, CHUNKER_CONFIG );
+  const fileGroup = chunker.chunkFileWithGrouping( code, file.relative );
+  if(fileGroup.finalTokenCount > MAX_TOKENS_PER_FILE_ALLOWED_LIMIT){
+    throw new Error("MAX_TOKENS_PER_FILE_ALLOWED_LIMIT")
+  }
+  // --- Scoring ---
+  const scorer = new ScoringEngine( client, state.projectContext, state.runId );
+
+  // The `scoreFile` method is perfect for this. We just need to call it directly.
+  const interFileContext = "This file was analyzed in isolation by user request.";
+  const scoredFile = await scorer.scoreFile( fileGroup, interFileContext );
+
+  return scoredFile;
+}
 
 async function main ()
 {

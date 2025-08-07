@@ -1,11 +1,12 @@
 // src/hooks/useAnalysisPolling.ts
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import type { ProjectScorecard } from '@/types'; // Assuming your type definitions are in @/types
+import type { ProjectScorecard, ScoredFile } from '@/types'; // Assuming your type definitions are in @/types
+import { DUMMY_PROJECT_SCORECARD } from '@/lib/dummy-data';
 
 // Configuration: API base URL and polling interval
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:10000';
-const POLLING_INTERVAL_MS = 5000; // Poll every 2 seconds for a responsive feel
+const POLLING_INTERVAL_MS = 100; // Poll every 2 seconds for a responsive feel
 
 // --- Type Definitions ---
 
@@ -26,8 +27,10 @@ export interface AnalysisState {
     error: string | null;
     /** The final ProjectScorecard object, available only on completion. */
     report: ProjectScorecard | null;
+    allFiles: string[] | null; // NEW: The full list of relative file paths
     /** The unique ID for the current analysis run. */
     runId: string | null;
+    isScoringFile?:boolean
 }
 
 /**
@@ -45,8 +48,8 @@ export function useAnalysisPolling(repoUrl: string | null) {
         error: null,
         report: null,
         runId: null,
+        allFiles: null
     });
-
     // useRef is used to store the interval ID so it can be cleared across re-renders
     const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -66,6 +69,9 @@ export function useAnalysisPolling(repoUrl: string | null) {
      * It makes the initial POST request to the backend and then starts the polling process.
      */
     const startAnalysis = useCallback(async () => {
+        // mock the data 
+        // setState({report:DUMMY_PROJECT_SCORECARD,error:null,isLoading:false,logHistory:[],runId:'',allFiles:['23']}) 
+        // return 
         // Guard clause: do nothing if there's no repo URL
         if (!repoUrl) return;
 
@@ -81,6 +87,7 @@ export function useAnalysisPolling(repoUrl: string | null) {
             error: null,
             report: null,
             runId: null,
+            allFiles:null
         });
 
         try {
@@ -88,7 +95,7 @@ export function useAnalysisPolling(repoUrl: string | null) {
             const startResponse = await fetch(`${API_BASE_URL}/analysis`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ repoUrl }),
+                body: JSON.stringify({ repoUrl,runId:'2025-08-06T23-42-09-101Z' }),
             });
 
             if (!startResponse.ok) {
@@ -96,12 +103,12 @@ export function useAnalysisPolling(repoUrl: string | null) {
                 throw new Error(errorData.error || `Failed to start analysis job (status ${startResponse.status}).`);
             }
 
-            const { runId } = await startResponse.json();
+            const { runId, allFiles } = await startResponse.json();
             if (!runId) {
                 throw new Error("Server did not return a valid runId.");
             }
             
-            setState(prevState => ({ ...prevState, runId }));
+            setState(prevState => ({ ...prevState, runId,allFiles }));
 
             // --- Step 2: Begin polling for status updates ---
             intervalRef.current = setInterval(async () => {
@@ -151,10 +158,65 @@ export function useAnalysisPolling(repoUrl: string | null) {
                 error: startError.message,
                 report: null,
                 runId: null,
+                allFiles:null
             });
         }
     }, [repoUrl]); // The `startAnalysis` function is stable unless the `repoUrl` prop changes.
 
     // Return the complete state object and the function to trigger the analysis.
-    return { ...state, startAnalysis };
+    /**
+     * NEW: A function to score a single file on demand.
+     * @param filePath The relative path of the file to score.
+     */
+    const scoreFile = useCallback(async (filePath: string) => {
+        if (!state.runId) {
+            console.error("Cannot score file: no active runId.");
+            return;
+        }
+
+        // Check if the file is already in the report to prevent duplicate calls
+        if (state.report?.scoredFiles.some(sf => sf.filePath.endsWith(filePath))) {
+            console.log("File already scored:", filePath);
+            return;
+        }
+
+        setState(prevState => ({ ...prevState, isScoringFile: true }));
+        try {
+            const response = await fetch(`${API_BASE_URL}/analysis/${state.runId}/score-file`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ filePath }),
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || 'Failed to score file.');
+            }
+
+            const newScoredFile: ScoredFile = await response.json();
+            
+            // --- CRITICAL: Update the local report state ---
+            // This will cause the UI to reactively display the new file's score.
+            setState(prevState => {
+                if (!prevState.report) return prevState; // Should not happen
+                return {
+                    ...prevState,
+                    isScoringFile: false,
+                    report: {
+                        ...prevState.report,
+                        scoredFiles: [...prevState.report.scoredFiles, newScoredFile]
+                            // Optional: sort by impact score again
+                            .sort((a, b) => b.impactScore - a.impactScore),
+                    },
+                };
+            });
+            return newScoredFile
+        } catch (err: any) {
+            console.error("On-demand scoring failed:", err);
+            // You could show a toast notification here
+            setState(prevState => ({ ...prevState, isScoringFile: false, error: err.message }));
+        }
+    }, [state.runId, state.report]);
+
+    return { ...state, startAnalysis,scoreFile };
 }
