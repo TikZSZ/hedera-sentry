@@ -6,7 +6,7 @@ import { DUMMY_PROJECT_SCORECARD } from '@/lib/dummy-data';
 
 // Configuration: API base URL and polling interval
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:10000';
-const POLLING_INTERVAL_MS = 100; // Poll every 2 seconds for a responsive feel
+const POLLING_INTERVAL_MS = 500; // Poll every 2 seconds for a responsive feel
 
 // --- Type Definitions ---
 
@@ -91,11 +91,15 @@ export function useAnalysisPolling(repoUrl: string | null) {
         });
 
         try {
+            
             // --- Step 1: Start the analysis job and get a runId ---
             const startResponse = await fetch(`${API_BASE_URL}/analysis`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ repoUrl,runId:'2025-08-06T23-42-09-101Z' }),
+                body: JSON.stringify({ 
+                    repoUrl,
+                    // runId:'2025-08-07T01:33:05.965Z' 
+                }),
             });
 
             if (!startResponse.ok) {

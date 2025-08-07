@@ -110,6 +110,7 @@ export function AnalysisLoader({ logHistory, isLoading, error }: AnalysisLoaderP
                             return (
                                 <motion.div
                                     key={log.id}
+                                    // @ts-ignore
                                     variants={itemVariants}
                                     layout // This makes the list smoothly adjust when items are added
                                     className="flex items-start"

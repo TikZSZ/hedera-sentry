@@ -15,7 +15,7 @@ Avoid including language specific config files since the pipeline already consid
     -   Is this a dApp with smart contracts? If so, your **highest priority** is to select the most useful/complex \`.sol\` files. Focus on the contracts that implement the project's unique business logic or solve complex problems, not just standard library interfaces. Since the final review looks at sol contracts to critic them on multiple axis, sol files that seem important to security or gas cost etc can be included just to be elaborate keep in mind looking at bigger picture will mostly reveal flaws so we can skip a lot of other small or standard stuff, goes back to idea of human reviewer step by step thinking
 
 2.  **The Off-Chain Engine (The Brains):**
-    -   How does the application interact with the Hedera network? Select the key JavaScript/TypeScript files that contain:
+    -   How does the application interact with the Hedera network? Or what hedera specific logic does the application contain Select the key JavaScript/TypeScript files that contain:
         -   The primary services that use the Hedera SDKs.
         -   The logic for constructing, signing, and sending transactions.
         -   The main deployment and testing scripts for the smart contracts.
@@ -70,11 +70,15 @@ const FILE_SCORING__SCORE_PARTS_PROMPT = `
     - **If On-Chain (Solidity):** How well does it follow security best practices (Checks-Effects-Interactions, re-entrancy protection)? Is it gas-efficient (correct use of storage vs. memory)?
     - **If Off-Chain (JS/TS):** How well does it use the Hedera SDK? Does it correctly handle transaction IDs, signing, and client configuration (e.g., \`.setMaxAttempts()\`)? Is it secure against private key exposure?",
 
-  "positive_feedback": "string - Provide a specific compliment about a clever use of a Hedera feature or a well-managed on-chain/off-chain trade-off.",
+  "web3_pattern_identification": "string - Identify a specific Web3 or Hedera design pattern used (e.g., 'Checks-Effects-Interactions', 'Transaction Batching'). If none, leave empty.",
+    
+  "hedera_red_flag": "string - Identify the single most significant security flaw, gas inefficiency, or SDK misuse. If none, leave empty.",
 
-  "improvement_suggestion":  "string - Identify the single most impactful Hedera-specific improvement (e.g., 'This token minting logic could be made more gas-efficient by batching transactions').",
+  "hedera_optimization_suggestion": "string - Suggest one specific improvement to make this code cheaper or faster on Hedera. If well-optimized, leave empty.",
 
-  "group_summary": "string - A very brief (max 25 words) summary of what this Hedera-related code does.",
+  "positive_feedback": "string - Provide a specific compliment about a clever use of a Hedera feature.",
+  
+  "group_summary": "string - A brief summary of what this Hedera-related code does.",
 
   {{reviewer_notes_field}}
 `

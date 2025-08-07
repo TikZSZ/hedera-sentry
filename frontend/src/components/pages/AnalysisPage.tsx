@@ -1,293 +1,9 @@
-// import { useState, useEffect } from 'react';
-// import { Link, useSearchParams } from 'react-router-dom';
-// import { AnimatePresence, motion } from 'framer-motion';
-// import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-// import { Badge } from '@/components/ui/badge';
-// import { Github, ArrowLeft, Menu, File, CheckCircle, Wrench } from 'lucide-react';
-// import { DUMMY_PROJECT_SCORECARD } from '@/lib/dummy-data';
-// import type { ProjectScorecard, ScoredFile } from '@/types';
-// import { Radar, RadarChart, PolarGrid, PolarAngleAxis, ResponsiveContainer } from 'recharts';
-// import { cn } from '@/lib/utils';
-// import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@radix-ui/react-accordion';
-// import { useAnalysisPolling } from '@/hooks/useAnalysisPolling';
-// import ErrorComponent from '../ErrorComponent';
-// import { AnalysisLoader } from '../AnalysisLoader';
-
-// const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:10000';
-
-// interface AnalysisState
-// {
-//   isLoading: boolean;
-//   progressMessage: string;
-//   error: string | null;
-//   report: ProjectScorecard | null;
-// }
-
-// const fetchAnalysisReport = async ( repoUrl: string ): Promise<ProjectScorecard> =>
-// {
-//   console.log( "Fetching analysis for:", repoUrl );
-//   // Simulate network delay
-//   await new Promise( resolve => setTimeout( resolve, 100 ) );
-//   // In a real app, this would be an actual fetch call to your Appwrite function.
-//   // For now, we return our dummy data.
-//   return DUMMY_PROJECT_SCORECARD;
-// };
-
-// export default function AnalysisPage ()
-// {
-//   const [ searchParams ] = useSearchParams();
-//   const repoUrl = searchParams.get( 'repo' );
-//   // const [ report, setReport ] = useState<ProjectScorecard | null>( null );
-//   // const [ isLoading, setIsLoading ] = useState( true );
-//   // const [ error, setError ] = useState( '' );
-//   const [ selectedFile, setSelectedFile ] = useState<ScoredFile | null>( null );
-
-//   const { isLoading, logHistory, error, report, startAnalysis } = useAnalysisPolling( repoUrl );
-
-//   useEffect( () =>
-//   {
-//     // Automatically start the analysis when the component mounts with a valid repoUrl
-//     if ( repoUrl )
-//     {
-//       startAnalysis();
-//     }
-//   }, [ repoUrl, startAnalysis ] );
-
-//   if ( !repoUrl )
-//   {
-//     return <ErrorComponent message="No repository URL provided. Please go back and enter a URL." />;
-//   }
-
-//   if ( isLoading )
-//   {
-//     return <AnalysisLoader logHistory={logHistory} isLoading={isLoading} error={error} />
-//   }
-
-
-//   if ( error )
-//   {
-//     return <ErrorComponent message={`${error}`} />;
-//   }
-
-//   // if(!report){
-//   //   return <ErrorComponent message='Something went wrong'  />;
-//   // }
-
-//   return report && !isLoading && !error &&
-//     (
-//       <div className="flex h-screen w-full bg-black text-white font-sans overflow-hidden">
-
-//         {/* --- LEFT SIDEBAR: File Breakdown --- */}
-//         <aside className="w-1/3 max-w-sm h-full flex flex-col border-r border-zinc-800">
-//           <div className="p-4 border-b border-zinc-800">
-//             <h2 className="text-lg font-semibold">Analyzed Files</h2>
-//             <p className="text-sm text-zinc-400">{report.scoredFiles.length} files selected for scoring</p>
-//           </div>
-//           <div className="flex-grow overflow-y-auto">
-//             {report.scoredFiles.map( file => (
-//               <button
-//                 key={file.filePath}
-//                 onClick={() => setSelectedFile( file )}
-//                 className={cn(
-//                   "w-full text-left p-4 border-b border-zinc-800 hover:bg-zinc-900 transition-colors",
-//                   selectedFile?.filePath === file.filePath && "bg-emerald-900/50"
-//                 )}
-//               >
-//                 <div className="flex justify-between items-center">
-//                   <p className="font-mono text-sm text-zinc-300 truncate">{file.filePath.replace( /^repo_cache\/[^\/]+\//, '' )}</p>
-//                   <Badge className={cn(
-//                     "bg-zinc-700 text-zinc-300",
-//                     file.impactScore > 60 && "bg-emerald-800 text-emerald-200",
-//                     file.impactScore < 30 && "bg-amber-800 text-amber-200",
-//                   )}>
-//                     {file.impactScore.toFixed( 0 )}
-//                   </Badge>
-//                 </div>
-//               </button>
-//             ) )}
-//           </div>
-//           <div className="p-4 border-t border-zinc-800">
-//             <Link to="/" className="flex items-center gap-2 text-zinc-400 hover:text-white text-sm">
-//               <ArrowLeft className="h-4 w-4" />
-//               Analyze Another Project
-//             </Link>
-//           </div>
-//         </aside>
-
-//         {/* --- MAIN CONTENT AREA --- */}
-//         <main className="flex-1 h-full overflow-y-auto p-8">
-//           <AnimatePresence mode="wait">
-//             <motion.div
-//               key={selectedFile ? selectedFile.filePath : 'project-overview'}
-//               initial={{ opacity: 0, y: 20 }}
-//               animate={{ opacity: 1, y: 0 }}
-//               exit={{ opacity: 0, y: -20 }}
-//               transition={{ duration: 0.3 }}
-//             >
-//               {selectedFile ? (
-//                 <FileDetailView file={selectedFile} onClear={() => setSelectedFile( null )} />
-//               ) : (
-//                 <ProjectOverview report={report} />
-//               )}
-//             </motion.div>
-//           </AnimatePresence>
-//         </main>
-//       </div>
-//     )
-// }
-
-// // --- Sub-components for Main Content Area ---
-
-// const ProjectOverview = ( { report }: { report: ProjectScorecard } ) =>
-// {
-//   // const radarData = [ /* ... define radar data for project ... */ ];
-//   const radarData = report ? [
-//     { subject: 'Complexity', value: report.profile.complexity },
-//     { subject: 'Quality', value: report.profile.quality },
-//     { subject: 'Maintainability', value: report.profile.maintainability },
-//     { subject: 'Best Practices', value: report.profile.best_practices },
-//   ] : [];
-
-//   return (
-//     <div>
-
-
-//       <div className="mt-8 grid grid-cols-2 md:grid-cols-2 gap-6">
-//         <div>
-//           <div className="flex items-center gap-4">
-//             <Github className="h-8 w-8 text-zinc-500" />
-//             <h1 className="text-4xl font-bold">{report.repoName}</h1>
-//           </div>
-//           <p className="mt-3 text-lg text-zinc-400 max-w-3xl">{report.projectEssence}</p>
-//         </div>
-//         <Card className="glass-card-dark grid-">
-//           <CardHeader>
-//             <CardTitle className="text-zinc-100">Architectural Profile</CardTitle>
-//           </CardHeader>
-//           <CardContent className="h-72">
-//             <ResponsiveContainer width="100%" height="100%">
-//               <RadarChart data={radarData}>
-//                 <PolarGrid stroke="rgba(255,255,255,0.1)" />
-//                 <PolarAngleAxis dataKey="subject" tick={{ fill: '#a1a1aa', fontSize: 14 }} />
-//                 <Radar dataKey="value" stroke="#22d3ee" fill="#22d3ee" fillOpacity={0.3} />
-//               </RadarChart>
-//             </ResponsiveContainer>
-//           </CardContent>
-//         </Card>
-
-
-//         {/* Radar Chart for Project Profile */}
-
-//       </div>
-//       <Card className="glass-card-dark border-emerald-500/30 mt-5">
-//         <CardHeader>
-//           <CardTitle className="text-zinc-300">Final Project Score</CardTitle>
-//         </CardHeader>
-//         <CardContent className="text-center">
-//           <div className="text-7xl font-bold text-emerald-400">{report.finalProjectScore?.toFixed( 2 )}</div>
-//           <p className="text-sm text-zinc-400 mt-2">
-//             (Multiplier: {report.finalReview.multiplier}x)
-//           </p>
-//         </CardContent>
-//       </Card>
-
-//       <Card className="glass-card-dark mt-6">
-//         <CardHeader>
-//           <CardTitle className="text-xl text-white">CTO's Final Review</CardTitle>
-//         </CardHeader>
-//         <CardContent>
-//           <Accordion defaultValue="audit" type="single" collapsible>
-//             <AccordionItem value="audit">
-//               <AccordionTrigger className="text-emerald-400 hover:no-underline">Show Detailed Audit Notes</AccordionTrigger>
-//               <AccordionContent className="pt-4 text-sm text-zinc-400 space-y-4">
-//                 {Object.entries( report.finalReview.reasoning ).map( ( [ title, val ] ) => (
-//                   <div key={title}>
-//                     <h4 className="font-semibold text-zinc-200 capitalize">{title.replace( /_/g, ' ' )}</h4>
-//                     <p>{val as string}</p>
-//                   </div>
-//                 ) )}
-//               </AccordionContent>
-//             </AccordionItem>
-//           </Accordion>
-//         </CardContent>
-//       </Card>
-//     </div>
-//   );
-// };
-
-
-// const FileDetailView = ( { file, onClear }: { file: ScoredFile; onClear: () => void } ) =>
-// {
-//   return (
-//     <div>
-//       <button onClick={onClear} className="flex items-center gap-2 text-zinc-400 hover:text-white mb-4 text-sm">
-//         <ArrowLeft className="h-4 w-4" /> Back to Project Overview
-//       </button>
-//       <h2 className="text-3xl font-bold font-mono">{file.filePath.replace( /^repo_cache\/[^\/]+\//, '' )}</h2>
-
-//       <div className="mt-6 grid grid-cols-4 gap-4 text-center">
-//         <Card className="glass-card-dark p-4">
-//           <p className="text-sm text-zinc-400">Impact Score</p>
-//           <p className="text-3xl font-bold text-emerald-400">{file.impactScore.toFixed( 1 )}</p>
-//         </Card>
-//         <Card className="glass-card-dark p-4">
-//           <p className="text-sm text-zinc-400">Complexity</p>
-//           <p className="text-3xl font-bold text-emerald-400">{file.averageComplexity.toFixed( 1 )}</p>
-//         </Card>
-//         <Card className="glass-card-dark p-4">
-//           <p className="text-sm text-zinc-400">Quality</p>
-//           <p className="text-3xl font-bold text-emerald-400">{file.averageQuality.toFixed( 1 )}</p>
-//         </Card>
-//         <Card className="glass-card-dark p-4">
-//           <p className="text-sm text-zinc-400">Retries</p>
-//           <p className="text-3xl font-bold  text-amber-400">{file.retries}</p>
-//         </Card>
-//       </div>
-
-//       <div className="mt-6 space-y-4">
-//         {file.scoredChunkGroups.map( (group,i) => (
-//           <Card key={group.groupId} className="glass-card-dark">
-//             <CardHeader>
-//               <CardTitle className="text-lg text-zinc-300">
-//                 {/* AI Feedback (Chunk {group.groupId}) */}
-//                 AI Feedback for Lines {file.chunkingDetails.groupedChunks[group.groupId-1].startLine}-{file.chunkingDetails.groupedChunks[group.groupId-1].endLine}
-//               </CardTitle>
-//             </CardHeader>
-//             <CardContent className="text-sm space-y-4">
-//               <div>
-//                 <h4 className="font-semibold text-emerald-400 flex items-center gap-2"><CheckCircle className="h-4 w-4" /> Positive Feedback</h4>
-//                 <p className="text-zinc-300 pl-6">{group.score.positive_feedback}</p>
-//               </div>
-//               <div>
-//                 <h4 className="font-semibold text-amber-400 flex items-center gap-2"><Wrench className="h-4 w-4" /> Improvement Suggestion</h4>
-//                 <p className="text-zinc-300 pl-6">{group.score.improvement_suggestion}</p>
-//               </div>
-//             </CardContent>
-//           </Card>
-//         ) )}
-//       </div>
-//     </div>
-//   );
-// };
-
-// // Simple display block for metric
-// function Metric ( { label, value }: { label: string; value: string } )
-// {
-//   return (
-//     <div className="text-center bg-zinc-800/50 p-4 rounded-lg shadow-inner">
-//       <p className="text-zinc-400 text-sm">{label}</p>
-//       <p className="text-xl font-bold text-white">{value}</p>
-//     </div>
-//   );
-// }
-// src/pages/AnalysisPage.tsx
-
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Github, ArrowLeft, CheckCircle, Wrench, Sparkles, Loader2, NotebookText, ListOrdered } from 'lucide-react';
+import { Github, ArrowLeft, CheckCircle, Wrench, Sparkles, Loader2, NotebookText, ListOrdered, ShieldAlert, Zap, Puzzle } from 'lucide-react';
 import type { ProjectScorecard, ScoredFile } from '@/types';
 import { Radar, RadarChart, PolarGrid, PolarAngleAxis, ResponsiveContainer } from 'recharts';
 import { cn } from '@/lib/utils';
@@ -297,8 +13,7 @@ import ErrorComponent from '../ErrorComponent';
 import { AnalysisLoader } from '../AnalysisLoader';
 import { toast } from "sonner"
 import { Toaster } from "@/components/ui/sonner";
-import { ScrollArea } from "@/components/ui/scroll-area";
-
+import { ProjectOverview } from '../ProjectOverview';
 
 export default function AnalysisPage ()
 {
@@ -362,12 +77,14 @@ export default function AnalysisPage ()
   if ( !repoUrl ) return <ErrorComponent message="No repository URL provided." />;
   if ( isLoading ) return <AnalysisLoader logHistory={logHistory} isLoading={isLoading} error={error} />; // Simplified for clarity
   if ( error ) return <ErrorComponent message={error} />;
-  if ( !report && !error ) return <AnalysisLoader logHistory={logHistory} isLoading={isLoading} error={"Waiting for report..."} />; // Initial state
+  if ( !report && !error ) return <AnalysisLoader logHistory={logHistory} isLoading={isLoading} error={"Waiting for report..."} />;// Initial state
 
   return (
     <>
       <div className="flex h-screen w-full bg-black text-white font-sans overflow-hidden">
-
+        <div className="absolute top-0 right-0 w-96 h-96 bg-emerald-900/50 rounded-full filter blur-3xl opacity-20 animate-blob"></div>
+        <div className="absolute top-0 right-0 w-96 h-96 bg-cyan-900/50 rounded-full filter blur-3xl opacity-20 animate-blob animation-delay-2000"></div>
+        <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-indigo-900/50 rounded-full filter blur-3xl opacity-20 animate-blob animation-delay-4000"></div>
         {/* --- LEFT SIDEBAR: With Scored and Unscored Sections --- */}
         <aside className="w-1/3 max-w-sm h-full flex flex-col border-r border-zinc-800">
           <div className="p-4 border-b border-zinc-800">
@@ -375,7 +92,7 @@ export default function AnalysisPage ()
             <p className="text-sm text-zinc-400">{report.scoredFiles.length} files selected for scoring</p>
           </div>
           <div className="flex-grow overflow-y-auto">
-                       {/* AI-Selected Scored Files */}
+            {/* AI-Selected Scored Files */}
             <div className="px-2 py-2">
               <h3 className="px-2 text-xs font-semibold uppercase text-zinc-500">AI Selected Files</h3>
               {report.scoredFiles.map( file => (
@@ -424,7 +141,7 @@ export default function AnalysisPage ()
               {selectedFile ? (
                 <FileDetailView file={selectedFile} onClear={() => setSelectedFile( null )} />
               ) : (
-                <ProjectOverview report={report} />
+                <ProjectOverview report={report!} />
               )}
             </motion.div>
           </AnimatePresence>
@@ -473,60 +190,88 @@ const UnscoredFileListItem = ( { filePath, isLoading, onClick }: { filePath: str
   </button>
 );
 
-
-// --- Sub-components for Main Content Area (ProjectOverview, FileDetailView) ---
-// These remain largely the same as the previous version, I've just included the
-// corrected logic for displaying the chunk line numbers in FileDetailView.
-
 const FileDetailView = ( { file, onClear }: { file: ScoredFile; onClear: () => void } ) =>
 {
+  // Helper to find the line range for a group
+  const getGroupLineRange = ( groupId: number ) =>
+  {
+    const groupData = file.chunkingDetails.groupedChunks.find( g => g.groupId === groupId );
+    if ( !groupData || groupData.chunks.length === 0 ) return `Chunk ${groupId}`;
+    const startLine = Math.min( ...groupData.chunks.map( c => c.startLine ) );
+    const endLine = Math.max( ...groupData.chunks.map( c => c.endLine ) );
+    return `Lines ${startLine}-${endLine}`;
+  };
+
   return (
     <div>
+      {/* --- Header --- */}
       <button onClick={onClear} className="flex items-center gap-2 text-zinc-400 hover:text-white mb-4 text-sm">
         <ArrowLeft className="h-4 w-4" /> Back to Project Overview
       </button>
-      <h2 className="text-3xl font-bold font-mono">{file.filePath}</h2>
-      <div className="mt-6 grid grid-cols-4 gap-4 text-center">
-        <Card className="glass-card-dark p-4">
-          <p className="text-sm text-zinc-400">Impact Score</p>
-          <p className="text-3xl font-bold text-emerald-400">{file.impactScore.toFixed( 1 )}</p>
-        </Card>
-        <Card className="glass-card-dark p-4">
-          <p className="text-sm text-zinc-400">Complexity</p>
-          <p className="text-3xl font-bold text-emerald-400">{file.averageComplexity.toFixed( 1 )}</p>
-        </Card>
-        <Card className="glass-card-dark p-4">
-          <p className="text-sm text-zinc-400">Quality</p>
-          <p className="text-3xl font-bold text-emerald-400">{file.averageQuality.toFixed( 1 )}</p>
-        </Card>
-        <Card className="glass-card-dark p-4">
-          <p className="text-sm text-zinc-400">Retries</p>
-          <p className="text-3xl font-bold  text-amber-400">{file.retries}</p>
-        </Card>
+      <h2 className="text-3xl font-bold font-mono break-all">{file.filePath.replace( /^repo_cache\/[^\/]+\//, '' )}</h2>
+
+      {/* --- Top-Level Metrics --- */}
+      <div className="mt-6 grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
+        <MetricCard label="Impact Score" value={file.impactScore.toFixed( 1 )} color="emerald" />
+        <MetricCard label="Complexity" value={file.averageComplexity.toFixed( 1 )} />
+        <MetricCard label="Quality" value={file.averageQuality.toFixed( 1 )} />
+        <MetricCard label="Retries" value={file.retries} color={file.retries > 0 ? "amber" : "default"} />
       </div>
 
-      <div className="mt-6 space-y-4">
-        {file.scoredChunkGroups.map( ( group, i ) => (
-          <Card key={group.groupId} className="glass-card-dark">
+      {/* --- Granular AI Feedback Cards --- */}
+      <div className="mt-8 space-y-6">
+        {file.scoredChunkGroups.map( group => (
+          <Card key={group.groupId} className="glass-card-dark border border-zinc-800">
             <CardHeader>
-              <CardTitle className="text-lg text-zinc-300">
-                {/* AI Feedback (Chunk {group.groupId}) */}
-                AI Feedback for Lines {file.chunkingDetails.groupedChunks[ group.groupId - 1 ].startLine}-{file.chunkingDetails.groupedChunks[ group.groupId - 1 ].endLine}
+              <CardTitle className="text-xl text-zinc-200">
+                AI Audit for {getGroupLineRange( group.groupId )}
               </CardTitle>
+              <CardDescription className="text-zinc-400">
+                {group.score.group_summary}
+              </CardDescription>
             </CardHeader>
-            <CardContent className="text-sm space-y-4">
-              <div>
-                <h4 className="font-semibold text-sky-400 flex items-center gap-2"><ListOrdered className="h-4 w-4 mt-0.5" /> Summary</h4>
-                <p className="text-zinc-300 pl-6">{group.score.group_summary}</p>
-              </div>
-              <div>
-                <h4 className="font-semibold text-emerald-400 flex items-center gap-2"><CheckCircle className="h-4 w-4 mt-0.5" /> Positive Feedback</h4>
-                <p className="text-zinc-300 pl-6">{group.score.positive_feedback}</p>
-              </div>
-              <div>
-                <h4 className="font-semibold text-amber-400 flex items-center gap-2"><Wrench className="h-4 w-4 mt-0.5" /> Improvement Suggestion</h4>
-                <p className="text-zinc-300 pl-6">{group.score.improvement_suggestion}</p>
-              </div>
+            <CardContent className="space-y-6">
+
+              {/* NEW: Hedera Red Flag - Displayed only if present */}
+              {group.score.hedera_red_flag && (
+                <FeedbackSection
+                  title="Red Flag"
+                  content={group.score.hedera_red_flag}
+                  icon={<ShieldAlert className="h-5 w-5 text-red-400" />}
+                  color="red"
+                />
+              )}
+
+              {/* NEW: Hedera Optimization Suggestion - Displayed only if present */}
+              {group.score.hedera_optimization_suggestion && (
+                <FeedbackSection
+                  title="Optimization Suggestion"
+                  content={group.score.hedera_optimization_suggestion}
+                  icon={<Zap className="h-5 w-5 text-sky-400" />}
+                  color="sky"
+                />
+              )}
+
+              {/* NEW: Web3 Pattern Identification - Displayed only if present */}
+              {group.score.web3_pattern_identification && (
+                <FeedbackSection
+                  title="Pattern Identified"
+                  content={group.score.web3_pattern_identification}
+                  icon={<Puzzle className="h-5 w-5 text-indigo-400" />}
+                  color="indigo"
+                />
+              )}
+
+              {/* Positive Feedback - Always shown if present */}
+              {group.score.positive_feedback && (
+                <FeedbackSection
+                  title="Positive Feedback"
+                  content={group.score.positive_feedback}
+                  icon={<CheckCircle className="h-5 w-5 text-emerald-400" />}
+                  color="emerald"
+                />
+              )}
+
             </CardContent>
           </Card>
         ) )}
@@ -535,76 +280,38 @@ const FileDetailView = ( { file, onClear }: { file: ScoredFile; onClear: () => v
   );
 };
 
-const ProjectOverview = ( { report }: { report: ProjectScorecard } ) =>
+// --- NEW Helper Sub-components for a cleaner, more modular view ---
+
+const MetricCard = ( { label, value, color = 'default' }: { label: string; value: string | number, color?: 'emerald' | 'amber' | 'default' } ) =>
 {
-  // const radarData = [ /* ... define radar data for project ... */ ];
-  const radarData = report ? [
-    { subject: 'Complexity', value: report.profile.complexity },
-    { subject: 'Quality', value: report.profile.quality },
-    { subject: 'Maintainability', value: report.profile.maintainability },
-    { subject: 'Best Practices', value: report.profile.best_practices },
-  ] : [];
+  const colorClasses = {
+    emerald: 'text-emerald-400',
+    amber: 'text-amber-400',
+    default: 'text-white',
+  };
   return (
-    <div>
-      <div className="mt-8 grid grid-cols-2 md:grid-cols-2 gap-6">
-        <div>
-          <div className="flex items-center gap-4">
-            <Github className="h-8 w-8 text-zinc-500" />
-            <h1 className="text-4xl font-bold">{report.repoName}</h1>
-          </div>
-          <p className="mt-3 text-lg text-zinc-400 max-w-3xl">{report.projectEssence}</p>
-        </div>
-        <Card className="glass-card-dark grid-">
-          <CardHeader>
-            <CardTitle className="text-zinc-100">Architectural Profile</CardTitle>
-          </CardHeader>
-          <CardContent className="h-72">
-            <ResponsiveContainer width="100%" height="100%">
-              <RadarChart data={radarData}>
-                <PolarGrid stroke="rgba(255,255,255,0.1)" />
-                <PolarAngleAxis dataKey="subject" tick={{ fill: '#a1a1aa', fontSize: 14 }} />
-                <Radar dataKey="value" stroke="#22d3ee" fill="#22d3ee" fillOpacity={0.3} />
-              </RadarChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
+    <Card className="glass-card-dark p-4">
+      <p className="text-sm text-zinc-400">{label}</p>
+      <p className={cn( "text-3xl font-bold", colorClasses[ color ] )}>{value}</p>
+    </Card>
+  );
+};
 
-
-        {/* Radar Chart for Project Profile */}
-
-      </div>
-      <Card className="glass-card-dark border-emerald-500/30 mt-5">
-        <CardHeader>
-          <CardTitle className="text-zinc-300">Final Project Score</CardTitle>
-        </CardHeader>
-        <CardContent className="text-center">
-          <div className="text-7xl font-bold text-emerald-400">{report.finalProjectScore?.toFixed( 2 )}</div>
-          <p className="text-sm text-zinc-400 mt-2">
-            (Multiplier: {report.finalReview.multiplier}x)
-          </p>
-        </CardContent>
-      </Card>
-
-      <Card className="glass-card-dark mt-6">
-        <CardHeader>
-          <CardTitle className="text-xl text-white">CTO's Final Review</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Accordion defaultValue="audit" type="single" collapsible>
-            <AccordionItem value="audit">
-              <AccordionTrigger className="text-emerald-400 hover:no-underline">Show Detailed Audit Notes</AccordionTrigger>
-              <AccordionContent className="pt-4 text-sm text-zinc-400 space-y-4">
-                {Object.entries( report.finalReview.reasoning ).map( ( [ title, val ] ) => (
-                  <div key={title}>
-                    <h4 className="font-semibold text-zinc-200 capitalize">{title.replace( /_/g, ' ' )}</h4>
-                    <p>{val as string}</p>
-                  </div>
-                ) )}
-              </AccordionContent>
-            </AccordionItem>
-          </Accordion>
-        </CardContent>
-      </Card>
+const FeedbackSection = ( { title, content, icon, color }: { title: string; content: string; icon: React.ReactNode, color: string } ) =>
+{
+  const colorClasses = {
+    red: 'text-red-400',
+    sky: 'text-sky-400',
+    indigo: 'text-indigo-400',
+    emerald: 'text-emerald-400',
+  };
+  return (
+    <div className="border-t border-zinc-800 pt-4">
+      <h4 className={cn( "font-semibold flex items-center gap-3", colorClasses[ color] )}>
+        {icon}
+        <span>{title}</span>
+      </h4>
+      <p className="text-zinc-300 pl-8 mt-2">{content}</p>
     </div>
   );
-}
+};

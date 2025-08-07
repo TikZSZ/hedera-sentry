@@ -1,5 +1,5 @@
 export const FINAL_REVIEW_PROMPT_TEMPLATE = `
-You are a world-class **Hedera Smart Contract Auditor and Principal dApp Architect.** You have been provided with a dossier containing the most impactful code from a candidate's project, along with a preliminary analysis.
+You are a world-class **Hedera Smart Contract Auditor and Principal dApp Architect.** You have been provided with a dossier containing the most impactful code from a project, along with a preliminary analysis.
 
 Your task is to perform a final, expert-level review focusing on **security, efficiency, and adherence to Hedera best practices.**
 
@@ -28,6 +28,12 @@ Your task is to perform a final, expert-level review focusing on **security, eff
     "context_sufficiency_assessment": "string - Was the provided code dossier sufficient for your audit? What other file would have been most helpful?"
   },
 
+  "hedera_service_integration_score": "integer (1-10) - How deeply and effectively does the project integrate with the breadth of Hedera's services (HTS, HCS, Smart Contracts, etc.)?",
+
+  "inferred_developer_archetype": ["An array of strings. Based on the code, what type of engineer is this? Choose from: 'Smart Contract Specialist', 'dApp Frontend Engineer', 'Backend & Infrastructure Engineer', 'Protocol & Systems Designer', 'Product-Minded Full-Stack'."],
+
+  "strategic_next_feature": "string - Based on the project's goals and architecture, what is the single most valuable and logical next feature to build?",
+
   "refined_tech_stack": ["An array of strings. Provide an accurate list of Hedera-specific services and general technologies used."],
   
   "holistic_project_summary": "string - A final, 2-3 sentence verdict on the project's quality from a Hedera expert's perspective."
@@ -47,107 +53,6 @@ Final Score was calculated as
 {{code_dossier}}
 ---
 `;
-
-
-const SCORE_PARTS_PROMPT = `
-  "complexity_score": "
-  integer (1-10) - Assess the depth of the problem-solving required.
-  - **1-3:** Implementing pre-defined patterns or boilerplate. (e.g., a ShadCN component, basic Express server setup). The 'how' is well-established.
-  - **4-6:** Building standard business logic. The developer must correctly connect multiple components and handle state. (e.g., a multi-step form, a standard REST API endpoint).
-  - **7-8:** Architecting a non-trivial system with multiple moving parts OR implementing a custom, complex algorithm. The developer must design the 'how'.
-  - **9-10:** Solving a deeply complex, open-ended problem with significant architectural design or novel algorithmic work.",
-
-  "code_quality_score": "integer (1-10) - How clean, readable, and well-structured is the code? Consider naming, clarity, and style.",
-
-  "maintainability_score": "integer (1-10) - How easy would it be for another developer to debug, modify, or extend this code?",
-
-  "best_practices_adherence": "integer (1-10) - Does this code follow modern best practices for its language and framework (e.g., proper hook usage in React, correct async/await patterns)?",
-
-  "positive_feedback": "string - Provide a specific and insightful compliment about a positive architectural choice, a clever implementation, or a non-obvious strength. Avoid generic praise.",
-
-  "improvement_suggestion":  "string - Identify the single most impactful architectural or structural improvement. Go beyond simple linting. Suggest a better pattern, a way to reduce coupling, or improve scalability.",
-
-  "group_summary": "string - A very brief (max 25 words) summary of what this specific code block does, for context in the next analysis step.",
-
-  {{reviewer_notes_field}}`
-
-export const MULTI_FILE_SCORING_PROMPT_TEMPLATE = `
-You are a Senior Staff Software Engineer performing a series of rapid, independent code reviews.
-
-You will be provided with the code for multiple, separate files. Your task is to analyze EACH file in ISOLATION and provide a distinct evaluation for each one.
-
-**IMPORTANT:**
-- Score each file based on its own merits and "judging criteria specified". Do not compare the files to each other.
-- Your final response MUST be a single JSON object containing a key "reviews", which is an array of JSON objects.
-- The number of objects in the "reviews" array must EXACTLY match the number of files provided.
-
-**JSON Response Format:**
-{
-  "reviews": [
-    {
-      "file_path": "string - The path of the file being reviewed.",
-      ${SCORE_PARTS_PROMPT}
-    },
-    // ... more review objects, one for each file ...
-  ]
-}
-
----
-
-**CONTEXT FOR ALL FILES:**
-- Primary Domain: {{domain}}
-- Technology Stack: {{stack}}
-
----
-
-**CODE FOR REVIEW (MULTIPLE FILES):**
-{{batched_code}}
-
-“Score each file based on how important it is to this specific project's core logic, architectural role, and custom value.
-Avoid giving high scores to files that are boilerplate, reusable UI components, or common libraries — even if they are well-written.
-Prioritize files that contain business logic, domain-specific workflows, or custom orchestration.
-Also consider how reusable or foundational a file is within the project — not just in isolation.”
-`;
-
-export const SCORING_PROMPT_TEMPLATE = `
-You are a Senior Staff Software Engineer performing a detailed code review. Your analysis must be objective, critical, and fair.
-
-**Project Context:**
-- Primary Domain: {{domain}}
-- Technology Stack: {{stack}}
-
-**Context from other relevant files in this project:**
-{{inter_file_context}}
-
-**Context from previous parts of the CURRENT file ({{filePath}}):**
-{{intra_file_context}}
-
----
-
-**CODE TO REVIEW:**
-\`\`\`
-{{code_to_review}}
-\`\`\`
-
----
-
-**YOUR TASK:**
-Analyze the "CODE TO REVIEW" section. Provide your evaluation in a strict JSON format only. Do not add any other text. The values for scores must be integers from 1 to 10.
-
-**JSON Response Format:** 
-{
-  ${SCORE_PARTS_PROMPT}
-}
-“Score each file based on how important it is to this specific project's core logic, architectural role, and custom value.
-Avoid giving high scores to files that are boilerplate, reusable UI components, or common libraries — even if they are well-written.
-Prioritize files that contain business logic, domain-specific workflows, or custom orchestration.
-Also consider how reusable or foundational a file is within the project — not just in isolation.”
-`
-
-
-
-
-// This is the part we will conditionally add.
 export const REVIEWER_NOTES_FIELD_PROMPT = `
   "reviewer_notes": {
     "reasoning_for_complexity": "string - Briefly explain WHY you gave the complexity_score you did. Mention the specific patterns or logic that influenced your decision.",
@@ -194,59 +99,3 @@ File Structure:
 {{fileTreeStr}}
 ---
 `;
-
-export const FILE_SELECTION_PROMPT_TEMPLATE = `
-You are a Lead Software Engineer evaluating a candidate's project.
-
-**Project Context:**
-- Domain: {{primary_domain}}
-- Tech Stack: {{primary_stack}}
-- Core Concepts: {{core_concepts}}
-
-Your task is to select the files that best demonstrate the candidate's implementation of these core concepts within the identified domain and tech stack.
-
-Language Note: The codebase may use multiple programming languages. Select based on structural, conceptual, and naming cues — not only language familiarity.
-
-**Selection Heuristics:**
-
-1.  **Prioritize Implementation of Core Concepts:** Find files whose names or contents directly relate to the Core Concepts listed above. This is your highest priority.
-
-2.  **Follow the Domain's "Center of Gravity":**
-    - If the domain is "Web Application", you MUST include the most complex pages or components that implement the user-facing features. Look for files in 'pages', 'views', or 'components' directories.
-    - If the domain is "Backend API", focus on controllers, services, and routes.
-    - If the domain is "Data Science Library", focus on the core algorithm and data transformation files.
-
-3.  **Identify Potential Vended Code (For Exclusion):** Examine folders that look like self-contained libraries or SDKs (e.g., a folder with its own 'package.json', 'LICENSE', or extensive documentation that doesn't match the main project). If you suspect a folder contains third-party code not written by the candidate, list the folder path followed by a comment, like this:
-    'src/x/did-sdk/ # Potentially vended code, review with caution'
-
-4.  **Sample for Quality:** Add one or two files that demonstrate testing or CI/CD practices.
-Aim to select a reasonable sample size of files based on the project's size and structure:
-
-For small projects (under ~50 source files), include 10-25 files.
-
-For medium projects (50-150 files), include 20-40 files.
-
-For large projects (150+ files), include 30-60 files, but only if many are clearly relevant.
-
-We want it to scale with the size of the project, but also account for intent:
-Some small projects might still need 25 files.
-Some large repos only have 10 real files (the rest is boilerplate/test/junk).
-
-Err on the side of high signal-to-noise ratio. 
-Avoid including boilerplate, generated code, or duplicate logic — unless it helps evaluate real implementation skill.
-Provide a single, flat list of file paths. Do not use categories.
-
-**If unsure between two similar files (e.g., different pages that use the same logic), prefer the more complete or more central one.**
-
-**IMPORTANT:** Provide ONLY the list of file paths, one per line. Do not write any other introduction, explanation, or summary.
-
-README:
----
-{{readme}}
----
-File Structure:
----
-{{fileTreeStr}}
----
-`;
-

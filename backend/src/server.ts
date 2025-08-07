@@ -171,6 +171,7 @@ app.post( '/analysis', async ( req, res ) =>
             startBackgroundAnalysis( runId, repoUrl, '', updateState, true );
         } else
         {
+            runId = new Date().toISOString()
             const initialMessage = 'Initiating analysis pipeline...';
             const initialState: RunState = {
                 runId,
