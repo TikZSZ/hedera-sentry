@@ -455,7 +455,7 @@ export async function analyzeRepo ( repoUrl: string, client: AIClient, options: 
 
   console.log( `AI selected ${aiSelections.length} paths, which resolved to ${aiSelectedSet.size} unique, existing files.` );
 
-  updateState( 'selecting_files', `AI selected ${aiSelectedSet.size} files for analysis.` );
+  updateState && updateState( 'selecting_files', `AI selected ${aiSelectedSet.size} files for analysis.` );
 
   // 2. Initialize the Report structure (exactly as in the original)
   const report: Report = {
@@ -485,7 +485,7 @@ export async function analyzeRepo ( repoUrl: string, client: AIClient, options: 
     details: [] as any[],
   };
 
-  updateState( 'chunking_and_scoring', 'Starting file chunking process...' );
+  updateState &&  updateState( 'chunking_and_scoring', 'Starting file chunking process...' );
 
   // --- Main Processing and Aggregation Loop (exactly as in the original) ---
   for ( const f of allFiles )
@@ -564,7 +564,7 @@ export async function analyzeRepo ( repoUrl: string, client: AIClient, options: 
     runId, "Tokens_AllProjectFiles": report.summary.tokenSummary.originalTokens_AllProjectFiles,
     "Tokens_SelectedFiles": report.summary.tokenSummary.originalTokens_AllProjectFiles, ...result
   } )
-  updateState( 'chunking_and_scoring', 'Chunking complete. Aggregating results...' );
+  updateState && updateState( 'chunking_and_scoring', 'Chunking complete. Aggregating results...' );
   saveReport( repoName, runId, 'chunking-analysis', report );
   // 5. Optionally print the human-readable report
   if ( printReport )
@@ -636,14 +636,14 @@ export async function runAnalysisAndScoring ( repoUrl: string, client: AIClient,
     vendedCodeFlagged: report.flaggedForReview || [],
   };
 
-  updateState( 'chunking_and_scoring', 'Preparing to score files...' );
+  updateState && updateState( 'chunking_and_scoring', 'Preparing to score files...' );
   // Initialize and run the scoring engine
   const scorer = new ScoringEngine( client, { domain: report.projectContext.primary_domain, stack: report.projectContext.primary_stack, projectEssence: report.projectContext.project_essence }, report.runId );
 
-  updateState( 'chunking_and_scoring', 'Scoring files' );
+  updateState && updateState( 'chunking_and_scoring', 'Scoring files' );
   const preliminaryScoreCard = await scorer.generateScorecard( report.details, report.summary.repo, warnings, false );
   preliminaryScoreCard.scoredFiles.sort( ( a, b ) => b.impactScore - a.impactScore ); // descending
-  updateState( 'chunking_and_scoring', 'Scoring Complete' );
+  updateState &&  updateState( 'chunking_and_scoring', 'Scoring Complete' );
 
   // 4. Save the preliminaryScoreCard
   saveReport( report.summary.repo, report.runId, 'project-scorecard', preliminaryScoreCard );
@@ -739,7 +739,12 @@ export async function scoreSingleFile ( state: RunState, client: AIClient, file:
 
 async function main ()
 {
+  const scoreClient = createAIClient( ALL_MODELS[ 'gemini-2.5-pro' ] ); // Client for final review
   initializeTokenizer();
+  const repoUrl = "https://github.com/hashgraph/hedera-smart-contracts"
+  const client = createAIClient( ALL_MODELS[ 'gpt-4o-mini' ] ); // Client for initial steps
+  // const prj = await runAnalysisAndScoring(repoUrl,client)
+  await runFinalReview(repoUrl,scoreClient,'2025-08-07T20:20:07.605Z')
 }
 
 // main().finally( () =>

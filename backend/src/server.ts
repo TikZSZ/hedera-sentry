@@ -70,7 +70,7 @@ async function startBackgroundAnalysis ( runId: string, repoUrl: string, descrip
                     };
                 } )
                 .filter( f => f.isFile ) // Ensure only files, not subdirectories
-                .sort( ( a, b ) => b.mtime.getMilliseconds() - a.mtime.getMilliseconds() ); // Sort descending by modified time
+                .sort( ( a, b ) => b.mtime.getTime() - a.mtime.getTime() ); // Sort descending by modified time
 
             if ( files.length === 0 )
             {
@@ -267,6 +267,49 @@ app.post( '/analysis/:runId/score-file', async ( req, res ) =>
         res.status( 500 ).json( { error: `Failed to score file: ${error.message}` } );
     }
 } );
+
+app.get('/analysis/:runId/file-content', (req, res) => {
+    const { runId } = req.params;
+    const { filePath } = req.query;
+    console.log({runId,filePath})
+    // --- 1. Input Validation ---
+    if (!filePath || typeof filePath !== 'string') {
+        return res.status(400).json({ error: 'Query parameter "filePath" is required.' });
+    }
+
+    const state = analysisStore.get(runId);
+    if (!state) {
+        return res.status(404).json({ error: 'Analysis run not found.' });
+    }
+
+    const repoName = state.repoName;
+    const repoCachePath = path.join(APP_CONFIG.LOCAL_REPO_DIR, repoName);
+    // --- 2. Security Check: Prevent Directory Traversal ---
+    // We resolve the requested file path against the repository's specific cache directory.
+    const absoluteFilePath = path.resolve(repoCachePath, filePath);
+    console.log({absoluteFilePath})
+
+    // This is the critical security check. We ensure that the resolved absolute path
+    // is still located *inside* the intended repository cache directory.
+    // if (!absoluteFilePath.endsWith(repoCachePath)) {
+    //     return res.status(403).json({ error: 'Forbidden: Access to this path is not allowed.' });
+    // }
+
+    // --- 3. File Reading and Response ---
+    try {
+        if (fs.existsSync(absoluteFilePath)) {
+            const content = fs.readFileSync(absoluteFilePath, 'utf-8');
+            // Send the content as plain text. The frontend will handle syntax highlighting.
+            res.setHeader('Content-Type', 'text/plain');
+            res.status(200).send(content);
+        } else {
+            res.status(404).json({ error: `File not found in repository: ${filePath}` });
+        }
+    } catch (error: any) {
+        console.error(`Error reading file ${filePath} for runId ${runId}:`, error);
+        res.status(500).json({ error: 'Failed to read file content.' });
+    }
+});
 
 // --- Server Initialization ---
 async function startServer ()

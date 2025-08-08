@@ -1,35 +1,14 @@
 export const FILE_SELECTION_PROMPT_TEMPLATE = `
-You are an experienced Web3 software architect. You are provided with a project's file tree and its "Project Essence." Your task is to select a portfolio of files for a multi-stage AI evaluation pipeline.
+You are an experienced Web3 software architect. You are provided with a project's file tree and file tree and some other information about the project context ( project essence and README/Description). Your task is to select files, the strategy will be based around the goal that is based around the fact that these selected files will be sent into next stage of pipeline where the code will be auto reviewed by ai and scored on bunch of parameters (like quality, complexity, best practices and maintainability) + after that a impact score is generated for each file, files are then picked by top N algo based on sorted order which in next stage in pipeline ai reviews together to make a report of whole project like what it does, does project achieves the goals it claims on readme or description, how it achieves it, in the process what skills are evident and how proficient they are in the domain/framework etc etc.
 
-**Your Goal & The Pipeline's Next Steps:**
-The files you select are critical. They will be sent to a scoring AI to get granular scores on complexity, quality, and best practices. The highest-impact files from that stage will then be sent to a final "AI Auditor" for a holistic review of the project's architecture, security, and overall achievement. Your selection must provide the best possible evidence for this entire process.
-
-**Your Selection Strategy:**
-You must think like a senior engineer evaluating a candidate's take-home project. First, identify the most important files based on their names and the project's stated goals. Then, enrich this selection by ensuring it covers the key facets of a high-quality Hedera dApp.
+So based on goals described above and the project context given you'll have to pick files so that first and foremost most important files are selected just like a human evaluating projects would they would look at names and figure out what files are important and relevant and pick those first, then based on domain be it smart contracts, a full dapp, novel or new usage of DAPs or contracts etc etc you'll need to pick files that from the name are super relevant to not only the project but the domain itself and this is where framework based heuristics across languages come into play. Now make sure the files that look boilerplate or standard are also included but not too many since there are instances where if u have seen one or two u have seen all (again it comes to domain knowledge and projects), vs the core logic of app which is always completely important.
+So this is sort of the strategy u should use to pick files.
 
 Avoid including language specific config files since the pipeline already considers those files in other stages. Other Important config files can be included if it makes sense.  
 
-**Prioritized Checklist:**
-
-1.  **The On-Chain Logic (The Heart):**
-    -   Is this a dApp with smart contracts? If so, your **highest priority** is to select the most useful/complex \`.sol\` files. Focus on the contracts that implement the project's unique business logic or solve complex problems, not just standard library interfaces. Since the final review looks at sol contracts to critic them on multiple axis, sol files that seem important to security or gas cost etc can be included just to be elaborate keep in mind looking at bigger picture will mostly reveal flaws so we can skip a lot of other small or standard stuff, goes back to idea of human reviewer step by step thinking
-
-2.  **The Off-Chain Engine (The Brains):**
-    -   How does the application interact with the Hedera network? Or what hedera specific logic does the application contain Select the key JavaScript/TypeScript files that contain:
-        -   The primary services that use the Hedera SDKs.
-        -   The logic for constructing, signing, and sending transactions.
-        -   The main deployment and testing scripts for the smart contracts.
-        -   Other files that seem relevant or revealing (services, classes) goes back to human reviewer perspective 
-
-3.  **The Application & Architecture (The Skeleton):**
-    -   How is the project structured? Select the files that define the overall architecture, such as the main entry point (\`main.tsx\`, \`App.tsx\`), the router, and any crucial global state managers, context providers, classes, services
-
-4.  **A Sample of Craftsmanship (The Polish):**
-    -   Include a **small, representative sample** of other files to demonstrate overall quality. This can include one or two well-structured UI components that *use* the core logic, or a particularly clean utility file. Do not select every boilerplate component. If it fits in the idea of if u have seen 1 or 2 u have seen em all u can skip those types
 
 **Critical Rules:**
 -   **Vended Code:** If you suspect a folder is a third-party library, mark it with a comment: 'src/sdk/ # Potentially vended code'.
-- Return Full path to file as exactly shown in File Structure DO NOT omit any file path parts else it will be invalid
 
 **Project Context:**
 - Domain: {{primary_domain}}
