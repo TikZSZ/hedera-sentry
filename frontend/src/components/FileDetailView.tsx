@@ -52,7 +52,7 @@ export const FileDetailView = ( { file, runId, onClear }: { file: ScoredFile; ru
 
   // NEW: All the complex effect logic is now handled by this single hook
   const [ hoveredGroupId, setHoveredGroupId ] = useState<number | null>( null );
-  useMonacoDecorations( editorRef, file, hoveredGroupId );
+  useMonacoDecorations( editorRef, file, code,hoveredGroupId );
 
   useEffect( () =>
   {
@@ -141,20 +141,20 @@ export const FileDetailView = ( { file, runId, onClear }: { file: ScoredFile; ru
                 <CardContent className="space-y-6">
 
                   {/* NEW: Hedera Red Flag - Displayed only if present */}
-                  {group.score.hedera_red_flag && (
+                  {group.score.hedera_red_flag.description && (
                     <FeedbackSection
                       title="Red Flag"
-                      content={group.score.hedera_red_flag}
+                      content={group.score.hedera_red_flag.description}
                       icon={<ShieldAlert className="h-5 w-5 text-red-400" />}
                       color="red"
                     />
                   )}
 
                   {/* NEW: Hedera Optimization Suggestion - Displayed only if present */}
-                  {group.score.hedera_optimization_suggestion && (
+                  {group.score.hedera_optimization_suggestion.description && (
                     <FeedbackSection
                       title="Optimization Suggestion"
-                      content={group.score.hedera_optimization_suggestion}
+                      content={group.score.hedera_optimization_suggestion.description}
                       icon={<Zap className="h-5 w-5 text-sky-400" />}
                       color="sky"
                     />

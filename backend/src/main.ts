@@ -741,10 +741,10 @@ async function main ()
 {
   const scoreClient = createAIClient( ALL_MODELS[ 'gemini-2.5-pro' ] ); // Client for final review
   initializeTokenizer();
-  const repoUrl = "https://github.com/hashgraph/hedera-smart-contracts"
+  const repoUrl = "https://github.com/re0labs/reCeption"
   const client = createAIClient( ALL_MODELS[ 'gpt-4o-mini' ] ); // Client for initial steps
-  // const prj = await runAnalysisAndScoring(repoUrl,client)
-  await runFinalReview(repoUrl,scoreClient,'2025-08-07T20:20:07.605Z')
+  const prj = await runAnalysisAndScoring(repoUrl,client)
+  await runFinalReview(repoUrl,scoreClient,prj.runId)
 }
 
 // main().finally( () =>

@@ -51,9 +51,15 @@ const FILE_SCORING__SCORE_PARTS_PROMPT = `
 
   "web3_pattern_identification": "string - Identify a specific Web3 or Hedera design pattern used (e.g., 'Checks-Effects-Interactions', 'Transaction Batching'). If none, leave empty.",
     
-  "hedera_red_flag": "string - Identify the single most significant security flaw, gas inefficiency, or SDK misuse. If none, leave empty.",
+  "hedera_red_flag": {
+    "description": "string - The single most significant security flaw or SDK misuse or . If none, leave this entire object empty or null.",
+    "exact_code_snippet": "string - **CRITICAL:** Quote the single, exact, unmodified line of code from the input that this flag applies to. Do not summarize or change it."
+  },
 
-  "hedera_optimization_suggestion": "string - Suggest one specific improvement to make this code cheaper or faster on Hedera. If well-optimized, leave empty.",
+  "hedera_optimization_suggestion": {
+    "description": "string - The single best suggestion to make the code cheaper or faster. If none, leave this entire object empty or null.",
+    "exact_code_snippet": "string - **CRITICAL:** Quote the single, exact, unmodified line of code from the input that this suggestion applies to. Do not summarize or change it."
+  },
 
   "positive_feedback": "string - Provide a specific compliment about a clever use of a Hedera feature.",
   

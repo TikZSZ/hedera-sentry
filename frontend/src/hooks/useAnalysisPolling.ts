@@ -98,7 +98,7 @@ export function useAnalysisPolling(repoUrl: string | null) {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ 
                     repoUrl,
-                    runId:'2025-08-07T20:20:07.605Z' 
+                    runId:'2025-08-08T00:38:16.947Z' 
                 }),
             });
 
