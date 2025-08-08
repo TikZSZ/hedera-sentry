@@ -3,17 +3,16 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Github, ArrowLeft, CheckCircle, Wrench, Sparkles, Loader2, NotebookText, ListOrdered, ShieldAlert, Zap, Puzzle } from 'lucide-react';
-import type { ProjectScorecard, ScoredFile } from '@/types';
-import { Radar, RadarChart, PolarGrid, PolarAngleAxis, ResponsiveContainer } from 'recharts';
-import { cn } from '@/lib/utils';
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { Github, ArrowLeft, CheckCircle, Wrench, Sparkles, Loader2, ShieldAlert, Zap, Puzzle } from 'lucide-react';
+import type { ScoredFile } from '@/types';
 import { useAnalysisPolling } from '@/hooks/useAnalysisPolling';
 import ErrorComponent from '../ErrorComponent';
 import { AnalysisLoader } from '../AnalysisLoader';
 import { toast } from "sonner"
 import { Toaster } from "@/components/ui/sonner";
 import { ProjectOverview } from '../ProjectOverview';
+import { cn } from '@/lib/utils';
+import { FileDetailView } from '../FileDetailView';
 
 export default function AnalysisPage ()
 {
@@ -82,9 +81,10 @@ export default function AnalysisPage ()
   return (
     <>
       <div className="flex h-screen w-full bg-black text-white font-sans overflow-hidden">
-        <div className="absolute top-0 right-0 w-96 h-96 bg-emerald-900/50 rounded-full filter blur-3xl opacity-20 animate-blob"></div>
+        {/* <div className="absolute top-0 right-0 w-96 h-96 bg-emerald-900/50 rounded-full filter blur-3xl opacity-20 animate-blob"></div>
         <div className="absolute top-0 right-0 w-96 h-96 bg-cyan-900/50 rounded-full filter blur-3xl opacity-20 animate-blob animation-delay-2000"></div>
-        <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-indigo-900/50 rounded-full filter blur-3xl opacity-20 animate-blob animation-delay-4000"></div>
+        <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-indigo-900/50 rounded-full filter blur-3xl opacity-20 animate-blob animation-delay-4000"></div> */}
+
         {/* --- LEFT SIDEBAR: With Scored and Unscored Sections --- */}
         <aside className="w-1/3 max-w-sm h-full flex flex-col border-r border-zinc-800">
           <div className="p-4 border-b border-zinc-800">
@@ -139,7 +139,7 @@ export default function AnalysisPage ()
               transition={{ duration: 0.3 }}
             >
               {selectedFile ? (
-                <FileDetailView file={selectedFile} onClear={() => setSelectedFile( null )} />
+                <FileDetailView file={selectedFile} onClear={() => setSelectedFile( null )} runId={report?.runId!} />
               ) : (
                 <ProjectOverview report={report!} />
               )}
@@ -190,95 +190,107 @@ const UnscoredFileListItem = ( { filePath, isLoading, onClick }: { filePath: str
   </button>
 );
 
-const FileDetailView = ( { file, onClear }: { file: ScoredFile; onClear: () => void } ) =>
-{
-  // Helper to find the line range for a group
-  const getGroupLineRange = ( groupId: number ) =>
-  {
-    const groupData = file.chunkingDetails.groupedChunks.find( g => g.groupId === groupId );
-    if ( !groupData || groupData.chunks.length === 0 ) return `Chunk ${groupId}`;
-    const startLine = Math.min( ...groupData.chunks.map( c => c.startLine ) );
-    const endLine = Math.max( ...groupData.chunks.map( c => c.endLine ) );
-    return `Lines ${startLine}-${endLine}`;
-  };
+// const FileDetailView = ( { file, onClear }: { file: ScoredFile; onClear: () => void } ) =>
+// {
+//   // Helper to find the line range for a group
+//   const getGroupLineRange = ( groupId: number ) =>
+//   {
+//     const groupData = file.chunkingDetails.groupedChunks.find( g => g.groupId === groupId );
 
-  return (
-    <div>
-      {/* --- Header --- */}
-      <button onClick={onClear} className="flex items-center gap-2 text-zinc-400 hover:text-white mb-4 text-sm">
-        <ArrowLeft className="h-4 w-4" /> Back to Project Overview
-      </button>
-      <h2 className="text-3xl font-bold font-mono break-all">{file.filePath.replace( /^repo_cache\/[^\/]+\//, '' )}</h2>
+//     if ( !groupData || groupData.chunks.length === 0 ) return `Chunk ${groupId}`;
+//     return `Lines ${groupData.startLine}-${groupData.endLine}`;
+//   };
 
-      {/* --- Top-Level Metrics --- */}
-      <div className="mt-6 grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
-        <MetricCard label="Impact Score" value={file.impactScore.toFixed( 1 )} color="emerald" />
-        <MetricCard label="Complexity" value={file.averageComplexity.toFixed( 1 )} />
-        <MetricCard label="Quality" value={file.averageQuality.toFixed( 1 )} />
-        <MetricCard label="Retries" value={file.retries} color={file.retries > 0 ? "amber" : "default"} />
-      </div>
+//   useEffect(() => {
+//         // Fetch the full file content when the component mounts
+//         // fetchFileContent(file.filePath).then(setCode);
+//     }, [file.filePath]);
+    
+//     useEffect(() => {
+//         if (monaco && code) {
+//             // This is where you would use the Monaco API to add decorations
+//             // e.g., monaco.editor.createModel(code, 'typescript').deltaDecorations(...)
+//             // based on the `relevant_code_snippet` from `file.scoredChunkGroups`.
+//         }
+//     }, [monaco, code, file.scoredChunkGroups]);
 
-      {/* --- Granular AI Feedback Cards --- */}
-      <div className="mt-8 space-y-6">
-        {file.scoredChunkGroups.map( group => (
-          <Card key={group.groupId} className="glass-card-dark border border-zinc-800">
-            <CardHeader>
-              <CardTitle className="text-xl text-zinc-200">
-                AI Audit for {getGroupLineRange( group.groupId )}
-              </CardTitle>
-              <CardDescription className="text-zinc-400">
-                {group.score.group_summary}
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
+//   return (
+//     <div>
+//       {/* --- Header --- */}
+//       <button onClick={onClear} className="flex items-center gap-2 text-zinc-400 hover:text-white mb-4 text-sm">
+//         <ArrowLeft className="h-4 w-4" /> Back to Project Overview
+//       </button>
+//       <h2 className="text-3xl font-bold font-mono break-all">{file.filePath.replace( /^repo_cache\/[^\/]+\//, '' )}</h2>
 
-              {/* NEW: Hedera Red Flag - Displayed only if present */}
-              {group.score.hedera_red_flag && (
-                <FeedbackSection
-                  title="Red Flag"
-                  content={group.score.hedera_red_flag}
-                  icon={<ShieldAlert className="h-5 w-5 text-red-400" />}
-                  color="red"
-                />
-              )}
+//       {/* --- Top-Level Metrics --- */}
+//       <div className="mt-6 grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
+//         <MetricCard label="Impact Score" value={file.impactScore.toFixed( 1 )} color="emerald" />
+//         <MetricCard label="Complexity" value={file.averageComplexity.toFixed( 1 )} />
+//         <MetricCard label="Quality" value={file.averageQuality.toFixed( 1 )} />
+//         <MetricCard label="Retries" value={file.retries} color={file.retries > 0 ? "amber" : "default"} />
+//       </div>
 
-              {/* NEW: Hedera Optimization Suggestion - Displayed only if present */}
-              {group.score.hedera_optimization_suggestion && (
-                <FeedbackSection
-                  title="Optimization Suggestion"
-                  content={group.score.hedera_optimization_suggestion}
-                  icon={<Zap className="h-5 w-5 text-sky-400" />}
-                  color="sky"
-                />
-              )}
+//       {/* --- Granular AI Feedback Cards --- */}
+//       <div className="mt-8 space-y-6">
+//         {file.scoredChunkGroups.map( group => (
+//           <Card key={group.groupId} className="glass-card-dark border border-zinc-800">
+//             <CardHeader>
+//               <CardTitle className="text-xl text-zinc-200">
+//                 AI Audit for {getGroupLineRange( group.groupId )}
+//               </CardTitle>
+//               <CardDescription className="text-zinc-400">
+//                 {group.score.group_summary}
+//               </CardDescription>
+//             </CardHeader>
+//             <CardContent className="space-y-6">
 
-              {/* NEW: Web3 Pattern Identification - Displayed only if present */}
-              {group.score.web3_pattern_identification && (
-                <FeedbackSection
-                  title="Pattern Identified"
-                  content={group.score.web3_pattern_identification}
-                  icon={<Puzzle className="h-5 w-5 text-indigo-400" />}
-                  color="indigo"
-                />
-              )}
+//               {/* NEW: Hedera Red Flag - Displayed only if present */}
+//               {group.score.hedera_red_flag && (
+//                 <FeedbackSection
+//                   title="Red Flag"
+//                   content={group.score.hedera_red_flag}
+//                   icon={<ShieldAlert className="h-5 w-5 text-red-400" />}
+//                   color="red"
+//                 />
+//               )}
 
-              {/* Positive Feedback - Always shown if present */}
-              {group.score.positive_feedback && (
-                <FeedbackSection
-                  title="Positive Feedback"
-                  content={group.score.positive_feedback}
-                  icon={<CheckCircle className="h-5 w-5 text-emerald-400" />}
-                  color="emerald"
-                />
-              )}
+//               {/* NEW: Hedera Optimization Suggestion - Displayed only if present */}
+//               {group.score.hedera_optimization_suggestion && (
+//                 <FeedbackSection
+//                   title="Optimization Suggestion"
+//                   content={group.score.hedera_optimization_suggestion}
+//                   icon={<Zap className="h-5 w-5 text-sky-400" />}
+//                   color="sky"
+//                 />
+//               )}
 
-            </CardContent>
-          </Card>
-        ) )}
-      </div>
-    </div>
-  );
-};
+//               {/* NEW: Web3 Pattern Identification - Displayed only if present */}
+//               {group.score.web3_pattern_identification && (
+//                 <FeedbackSection
+//                   title="Pattern Identified"
+//                   content={group.score.web3_pattern_identification}
+//                   icon={<Puzzle className="h-5 w-5 text-indigo-400" />}
+//                   color="indigo"
+//                 />
+//               )}
+
+//               {/* Positive Feedback - Always shown if present */}
+//               {group.score.positive_feedback && (
+//                 <FeedbackSection
+//                   title="Positive Feedback"
+//                   content={group.score.positive_feedback}
+//                   icon={<CheckCircle className="h-5 w-5 text-emerald-400" />}
+//                   color="emerald"
+//                 />
+//               )}
+
+//             </CardContent>
+//           </Card>
+//         ) )}
+//       </div>
+//     </div>
+//   );
+// };
 
 // --- NEW Helper Sub-components for a cleaner, more modular view ---
 

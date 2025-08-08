@@ -10,6 +10,10 @@
   @apply bg-zinc-900/50 backdrop-blur-3xl border border-zinc-800 rounded-2xl; /* Changed to rounded-2xl for a softer look */
 }
 
+.glass {
+  @apply snap-start bg-gradient-to-br from-zinc-900 rounded-2xl via-black to-zinc-800 text-white; /* Changed to rounded-2xl for a softer look */
+}
+
 @keyframes blob {
 	0% {
 		transform: translate(0px, 0px) scale(1);
@@ -141,6 +145,34 @@
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.556 0 0);
+}
+.line-highlight-animation {
+     background-color: rgba(52, 211, 153, 0.2);
+     transition: background-color 2s ease-out;
+}
+.line-highlight-glyph {
+    background-color: #34D399;
+}
+/* In src/index.css */
+
+.monaco-highlight-red {
+    background-color: rgba(239, 68, 68, 0.15); /* bg-red-500/15 */
+}
+.monaco-highlight-sky {
+    background-color: rgba(56, 189, 248, 0.15); /* bg-sky-400/15 */
+}
+.monaco-line-highlight-subtle {
+    background-color: rgba(71, 85, 105, 0.2); /* bg-slate-700/20 */
+}
+.monaco-line-highlight {
+    background-color: rgba(4, 120, 87, 0.25); /* a semi-transparent emerald color */
+    box-shadow: inset 2px 0 0 0 #34D399; /* a solid green line on the left */
+}
+.highlight-red {
+    background-color: rgba(239, 68, 68, 0.15);
+}
+.highlight-sky {
+    background-color: rgba(56, 189, 248, 0.15);
 }
 
 @layer base {
