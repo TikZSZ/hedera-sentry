@@ -43,7 +43,7 @@ Your task is to perform a final, expert-level review focusing on **security, eff
   "hedera_service_integration_score": "integer (1-10) - How deeply and effectively does the project integrate with the breadth of Hedera's services?",
 
   "strategic_next_feature": "string - What is the single most valuable and logical next feature the developer could build?",
-  "refined_tech_stack": ["An array of strings. Provide an accurate list of all technologies used."],
+  "refined_tech_stack": ["An array of strings. Provide an accurate list of all technologies used. Its used with react icons and devicons lookup for UI purpose make sure the tech stack string is compatible with these "],
   
   "holistic_project_summary": "string - A final, 2-3 sentence verdict on the project's quality from a Hedera expert's perspective."
 }

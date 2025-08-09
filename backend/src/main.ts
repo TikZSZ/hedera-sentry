@@ -739,12 +739,12 @@ export async function scoreSingleFile ( state: RunState, client: AIClient, file:
 
 async function main ()
 {
-  const scoreClient = createAIClient( ALL_MODELS[ 'gemini-2.5-pro' ] ); // Client for final review
+  const scoreClient = createAIClient( ALL_MODELS[ 'gpt-5-mini' ] ); // Client for final review
   initializeTokenizer();
-  const repoUrl = "https://github.com/re0labs/reCeption"
-  const client = createAIClient( ALL_MODELS[ 'gpt-4o-mini' ] ); // Client for initial steps
-  const prj = await runAnalysisAndScoring(repoUrl,client)
-  await runFinalReview(repoUrl,scoreClient,prj.runId)
+  const repoUrl = "https://github.com/hashgraph/hedera-smart-contracts"
+  // const client = createAIClient( ALL_MODELS[ 'gpt-4o-mini' ] ); // Client for initial steps
+  // const prj = await runAnalysisAndScoring(repoUrl,client)
+  await runFinalReview(repoUrl,scoreClient,'2025-08-08T05:21:46.671Z')
 }
 
 // main().finally( () =>

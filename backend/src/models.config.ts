@@ -32,6 +32,36 @@ export const ALL_MODELS: Record<string, ModelConfig> = {
             maxTokens: 4096,
         },
     },
+    'gpt-5-nano': {
+        id: 'gpt-5-nano',
+        provider: 'openai',
+        modelName: 'gpt-5-nano',
+        apiKeyEnvVar: 'OPENAI_API_KEY',
+        defaultParams: {
+            temperature: 0.1, // Low temp for deterministic, factual output
+            maxTokens: 4096,
+        },
+    },
+    'gpt-5-mini': {
+        id: 'gpt-5-mini',
+        provider: 'openai',
+        modelName: 'gpt-5-mini',
+        apiKeyEnvVar: 'OPENAI_API_KEY',
+        defaultParams: {
+            temperature: 0.1, // Low temp for deterministic, factual output
+            maxTokens: 4096,
+        },
+    },
+    'gpt-5': {
+        id: 'gpt-5',
+        provider: 'openai',
+        modelName: 'gpt-5',
+        apiKeyEnvVar: 'OPENAI_API_KEY',
+        defaultParams: {
+            temperature: 0.1, // Low temp for deterministic, factual output
+            maxTokens: 4096,
+        },
+    },
     'o4-mini': {
         id: 'o4-mini',
         provider: 'openai',

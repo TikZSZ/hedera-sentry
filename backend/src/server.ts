@@ -18,11 +18,9 @@ import fs from "fs"
 
 const analysisStore = new Map<string, RunState>();
 // NEW: A global cache for repository metadata (file lists, effective root, etc.)
-const repoMetadataCache = new Map<string, RepoMetadata>();
 
-const client = createAIClient( ALL_MODELS[ 'gpt-4o-mini' ] ); // Client for initial steps
-
-const scoreClient = createAIClient( ALL_MODELS[ 'gemini-2.5-flash' ] ); // Client for final review
+const client = createAIClient(ALL_MODELS[process.env.SCORE_MODEL || "gpt-4o-mini"]);
+const scoreClient = createAIClient(ALL_MODELS[process.env.FINAL_REVIEW_MODEL || "gemini-2.5-flash"]);
 
 function updateRunState ( runId: string, status: RunState[ 'status' ], message: string )
 {
@@ -52,49 +50,56 @@ async function startBackgroundAnalysis ( runId: string, repoUrl: string, descrip
     try
     {
         const currentState = analysisStore.get( runId )!;
-        if ( cache )
+        try
         {
-            const repoName = path.basename( repoUrl, '.git' );
-            const reportPath = path.join( APP_CONFIG.REPORTS_DIR, repoName, `run-${runId}`, 'final-reviews2' );
+            if ( cache )
+            {
+                const repoName = path.basename( repoUrl, '.git' );
+                const reportPath = path.join( APP_CONFIG.REPORTS_DIR, repoName, `run-${runId}`, 'final-reviews2' );
+                // Read the directory
+                const files = fs.readdirSync( reportPath )
+                    .map( file =>
+                    {
+                        const filePath = path.join( reportPath, file );
+                        const stat = fs.statSync( filePath );
+                        return {
+                            file,
+                            mtime: stat.mtime,
+                            isFile: stat.isFile()
+                        };
+                    } )
+                    .filter( f => f.isFile ) // Ensure only files, not subdirectories
+                    .sort( ( a, b ) => b.mtime.getTime() - a.mtime.getTime() ); // Sort descending by modified time
 
-            // Read the directory
-            const files = fs.readdirSync( reportPath )
-                .map( file =>
+                if ( files.length === 0 )
                 {
-                    const filePath = path.join( reportPath, file );
-                    const stat = fs.statSync( filePath );
-                    return {
-                        file,
-                        mtime: stat.mtime,
-                        isFile: stat.isFile()
-                    };
-                } )
-                .filter( f => f.isFile ) // Ensure only files, not subdirectories
-                .sort( ( a, b ) => b.mtime.getTime() - a.mtime.getTime() ); // Sort descending by modified time
+                    throw new Error( 'No Report Cache Found' )
+                } else
+                {
+                    const mostRecentFile = files[ 0 ].file;
+                    const mostRecentFilePath = path.join( reportPath, mostRecentFile );
 
-            if ( files.length === 0 )
-            {
-                throw new Error( 'No Report Cache Found' )
-            } else
-            {
-                const mostRecentFile = files[ 0 ].file;
-                const mostRecentFilePath = path.join( reportPath, mostRecentFile );
-
-                // Read file content (assuming it's a text file, adjust for JSON or others)
-                const content = fs.readFileSync( mostRecentFilePath, 'utf8' );
-                console.log( `Most recent file: ${mostRecentFile}` );
-                currentState.finalScorecard = JSON.parse( content )
-                // currentState.preliminaryScorecard = currentState.finalScorecard
-                updateState( 'complete', '✅ Analysis complete!' );
-                currentState.scoreCardPath = mostRecentFilePath
-                currentState.projectContext = {
-                    domain: currentState.finalScorecard.mainDomain,
-                    projectEssence: currentState.finalScorecard.projectEssence,
-                    stack: currentState.finalScorecard.techStack
+                    // Read file content (assuming it's a text file, adjust for JSON or others)
+                    const content = fs.readFileSync( mostRecentFilePath, 'utf8' );
+                    console.log( `Most recent file: ${mostRecentFile}` );
+                    currentState.finalScorecard = JSON.parse( content )
+                    // currentState.preliminaryScorecard = currentState.finalScorecard
+                    updateState( 'complete', '✅ Analysis complete!' );
+                    currentState.scoreCardPath = mostRecentFilePath
+                    currentState.projectContext = {
+                        domain: currentState.finalScorecard.mainDomain,
+                        projectEssence: currentState.finalScorecard.projectEssence,
+                        stack: currentState.finalScorecard.techStack
+                    }
+                    return
                 }
-                return
             }
+        } catch ( err )
+        {
+            updateState( 'preparing', 'Cache not found, building new report' )
+
         }
+
         const preliminaryScorecard = await runAnalysisAndScoring( repoUrl, client, description, runId, updateState );
 
         // Update state with the preliminary result
@@ -107,7 +112,7 @@ async function startBackgroundAnalysis ( runId: string, repoUrl: string, descrip
 
         updateState( 'final_review', 'Performing final holistic review...' )
         // Step 4: Run the Final Review
-        const { calibratedScorecard,calibratedScorecardPath} = await runFinalReview( repoUrl, scoreClient, runId );
+        const { calibratedScorecard, calibratedScorecardPath } = await runFinalReview( repoUrl, scoreClient, runId );
         currentState.scoreCardPath = calibratedScorecardPath
         // Step 5: Finalize the state
         currentState.finalScorecard = calibratedScorecard;
@@ -125,7 +130,17 @@ async function startBackgroundAnalysis ( runId: string, repoUrl: string, descrip
 
 
 // --- API Endpoints ---
-
+const CODE_EXTENSIONS = new Set( [
+    '.ts', '.tsx',
+    '.js', '.jsx',
+    '.json', '.md',
+    '.html', '.css', '.scss',
+    '.yml', '.yaml',
+    '.c', '.cpp', '.h', '.hpp',
+    '.py', '.java', '.rs', '.go', '.sol'
+] );
+const isNotHidden = ( file: { relative: string } ) =>
+    !file.relative.split( path.sep ).some( part => part.startsWith( '.' ) );
 /**
  * POST /analysis
  * Kicks off a new analysis job.
@@ -183,7 +198,14 @@ app.post( '/analysis', async ( req, res ) =>
             analysisStore.set( runId, initialState );
             startBackgroundAnalysis( new Date().toISOString(), repoUrl, '', updateState );
         }
-        res.status( 202 ).json( { runId, allFiles: allFiles.filter((f)=>!f.relative.startsWith('.')).map( file => file.relative ) } );
+
+
+        // const filteredFiles = allFiles
+        //     .filter( file => 
+        //         CODE_EXTENSIONS.has( path.extname( file.relative ).toLowerCase() ) && isNotHidden(file)
+        //     )
+
+        res.status( 202 ).json( { runId, allFiles: allFiles.map( f => f.relative ) } );
     } catch ( err: any )
     {
         res.status( 500 ).json( { error: `Failed to prepare repository: ${err.message}` } );
@@ -259,8 +281,8 @@ app.post( '/analysis/:runId/score-file', async ( req, res ) =>
 
         // Add the new score to the main scorecard in our state
         state.finalScorecard?.scoredFiles.push( scoredFile );
-        state.finalScorecard?.scoredFiles.sort((a, b) => b.impactScore - a.impactScore);
-        fs.writeFile(state.scoreCardPath,JSON.stringify(state.finalScorecard),()=>{})
+        state.finalScorecard?.scoredFiles.sort( ( a, b ) => b.impactScore - a.impactScore );
+        fs.writeFile( state.scoreCardPath, JSON.stringify( state.finalScorecard ), () => { } )
         res.status( 200 ).json( scoredFile );
     } catch ( error: any )
     {
@@ -268,26 +290,29 @@ app.post( '/analysis/:runId/score-file', async ( req, res ) =>
     }
 } );
 
-app.get('/analysis/:runId/file-content', (req, res) => {
+app.get( '/analysis/:runId/file-content', ( req, res ) =>
+{
     const { runId } = req.params;
     const { filePath } = req.query;
-    console.log({runId,filePath})
+    console.log( { runId, filePath } )
     // --- 1. Input Validation ---
-    if (!filePath || typeof filePath !== 'string') {
-        return res.status(400).json({ error: 'Query parameter "filePath" is required.' });
+    if ( !filePath || typeof filePath !== 'string' )
+    {
+        return res.status( 400 ).json( { error: 'Query parameter "filePath" is required.' } );
     }
 
-    const state = analysisStore.get(runId);
-    if (!state) {
-        return res.status(404).json({ error: 'Analysis run not found.' });
+    const state = analysisStore.get( runId );
+    if ( !state )
+    {
+        return res.status( 404 ).json( { error: 'Analysis run not found.' } );
     }
 
     const repoName = state.repoName;
-    const repoCachePath = path.join(APP_CONFIG.LOCAL_REPO_DIR, repoName);
+    const repoCachePath = path.join( APP_CONFIG.LOCAL_REPO_DIR, repoName );
     // --- 2. Security Check: Prevent Directory Traversal ---
     // We resolve the requested file path against the repository's specific cache directory.
-    const absoluteFilePath = path.resolve(repoCachePath, filePath);
-    console.log({absoluteFilePath})
+    const absoluteFilePath = path.resolve( repoCachePath, filePath );
+    console.log( { absoluteFilePath } )
 
     // This is the critical security check. We ensure that the resolved absolute path
     // is still located *inside* the intended repository cache directory.
@@ -296,20 +321,24 @@ app.get('/analysis/:runId/file-content', (req, res) => {
     // }
 
     // --- 3. File Reading and Response ---
-    try {
-        if (fs.existsSync(absoluteFilePath)) {
-            const content = fs.readFileSync(absoluteFilePath, 'utf-8');
+    try
+    {
+        if ( fs.existsSync( absoluteFilePath ) )
+        {
+            const content = fs.readFileSync( absoluteFilePath, 'utf-8' );
             // Send the content as plain text. The frontend will handle syntax highlighting.
-            res.setHeader('Content-Type', 'text/plain');
-            res.status(200).send(content);
-        } else {
-            res.status(404).json({ error: `File not found in repository: ${filePath}` });
+            res.setHeader( 'Content-Type', 'text/plain' );
+            res.status( 200 ).send( content );
+        } else
+        {
+            res.status( 404 ).json( { error: `File not found in repository: ${filePath}` } );
         }
-    } catch (error: any) {
-        console.error(`Error reading file ${filePath} for runId ${runId}:`, error);
-        res.status(500).json({ error: 'Failed to read file content.' });
+    } catch ( error: any )
+    {
+        console.error( `Error reading file ${filePath} for runId ${runId}:`, error );
+        res.status( 500 ).json( { error: 'Failed to read file content.' } );
     }
-});
+} );
 
 // --- Server Initialization ---
 async function startServer ()

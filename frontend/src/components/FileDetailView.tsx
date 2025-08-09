@@ -1,11 +1,13 @@
 import type { ScoredFile } from "@/types";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Editor, { useMonaco, type OnMount } from '@monaco-editor/react';
 import { ArrowLeft, CheckCircle, Loader2, Puzzle, ShieldAlert, Zap } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
 import { cn } from "@/lib/utils";
 import { editor } from 'monaco-editor'; // Import the main monaco editor type
-import { useMonacoDecorations } from "@/hooks/useMonacoDecorations";
+import { useMonacoDecorations, type ActiveHighlight } from '@/hooks/useMonacoDecorations'; // Import the new hook and type
+import { findMultiLineMatch } from "@/hooks/multiLineMatch";
+
 
 const MetricCard = ( { label, value, color = 'default' }: { label: string; value: string | number, color?: 'emerald' | 'amber' | 'default' } ) =>
 {
@@ -30,7 +32,7 @@ const FeedbackSection = ( { title, content, icon, color }: { title: string; cont
     emerald: 'text-emerald-400',
   };
   return (
-    <div className="border-t border-zinc-800 pt-4">
+    <div className="border-t border-zinc-800 pt-4 cursor-pointer hover:border-zinc-900">
       <h4 className={cn( "font-semibold flex items-center gap-3", colorClasses[ color ] )}>
         {icon}
         <span>{title}</span>
@@ -50,9 +52,49 @@ export const FileDetailView = ( { file, runId, onClear }: { file: ScoredFile; ru
   const [ isLoadingCode, setIsLoadingCode ] = useState( true );
   const editorRef = useRef<editor.IStandaloneCodeEditor | null>( null );
 
-  // NEW: All the complex effect logic is now handled by this single hook
-  const [ hoveredGroupId, setHoveredGroupId ] = useState<number | null>( null );
-  useMonacoDecorations( editorRef, file, code,hoveredGroupId );
+  // --- NEW STATE & LOGIC ---
+  const [ activeHighlight, setActiveHighlight ] = useState<ActiveHighlight | null>( null );
+
+  // This hook now takes the active highlight state
+  useMonacoDecorations( editorRef, activeHighlight );
+
+  // PRE-CALCULATE ALL LOCATIONS: This runs only when the code loads.
+  const feedbackLocations = useMemo( () =>
+  {
+    if ( !code ) return new Map();
+
+    const locations = new Map<string, ActiveHighlight>();
+    file.scoredChunkGroups.forEach( group =>
+    {
+      const { hedera_red_flag, hedera_optimization_suggestion } = group.score;
+
+      if ( hedera_red_flag?.exact_code_snippet )
+      {
+        const location = findMultiLineMatch( code, hedera_red_flag.exact_code_snippet );
+        if ( location )
+        {
+          locations.set( `${group.groupId}-red_flag`, {
+            type: 'red_flag',
+            location,
+            message: `**Red Flag:** ${hedera_red_flag.description}`
+          } );
+        }
+      }
+      if ( hedera_optimization_suggestion?.exact_code_snippet )
+      {
+        const location = findMultiLineMatch( code, hedera_optimization_suggestion.exact_code_snippet );
+        if ( location )
+        {
+          locations.set( `${group.groupId}-optimization`, {
+            type: 'optimization',
+            location,
+            message: `**Optimization:** ${hedera_optimization_suggestion.description}`
+          } );
+        }
+      }
+    } );
+    return locations;
+  }, [ code, file.scoredChunkGroups ] );
 
   useEffect( () =>
   {
@@ -125,14 +167,12 @@ export const FileDetailView = ( { file, runId, onClear }: { file: ScoredFile; ru
 
             return (
               <Card
-                onMouseEnter={() => setHoveredGroupId( group.groupId )}
-                // onMouseLeave={() => setHoveredGroupId( null )}
                 key={group.groupId}
                 className="glass-card-dark border border-zinc-800">
 
                 <CardHeader>
                   <CardTitle className="text-xl text-zinc-200">
-                    AI Audit for {range.start} - {range.end}
+                    Audit for Lines {range.start} - {range.end}
                   </CardTitle>
                   <CardDescription className="text-zinc-400">
                     {group.score.group_summary}
@@ -141,23 +181,33 @@ export const FileDetailView = ( { file, runId, onClear }: { file: ScoredFile; ru
                 <CardContent className="space-y-6">
 
                   {/* NEW: Hedera Red Flag - Displayed only if present */}
-                  {group.score.hedera_red_flag.description && (
-                    <FeedbackSection
-                      title="Red Flag"
-                      content={group.score.hedera_red_flag.description}
-                      icon={<ShieldAlert className="h-5 w-5 text-red-400" />}
-                      color="red"
-                    />
+                  {group.score.hedera_red_flag?.description && (
+                    <div
+                      onMouseEnter={() => setActiveHighlight( feedbackLocations.get( `${group.groupId}-red_flag` ) || null )}
+                      onMouseLeave={() => setActiveHighlight( null )}
+                      
+                    >
+                      <FeedbackSection
+                        title="Red Flag"
+                        content={group.score.hedera_red_flag.description}
+                        icon={<ShieldAlert className="h-5 w-5 text-red-400" />}
+                        color="red"
+                      />
+                    </div>
                   )}
+                  {group.score.hedera_optimization_suggestion?.description && (
+                    <div
+                      onMouseEnter={() => setActiveHighlight( feedbackLocations.get( `${group.groupId}-optimization` ) || null )}
+                      onMouseLeave={() => setActiveHighlight( null )}
 
-                  {/* NEW: Hedera Optimization Suggestion - Displayed only if present */}
-                  {group.score.hedera_optimization_suggestion.description && (
-                    <FeedbackSection
-                      title="Optimization Suggestion"
-                      content={group.score.hedera_optimization_suggestion.description}
-                      icon={<Zap className="h-5 w-5 text-sky-400" />}
-                      color="sky"
-                    />
+                    >
+                      <FeedbackSection
+                        title="Optimization Suggestion"
+                        content={group.score.hedera_optimization_suggestion.description}
+                        icon={<Zap className="h-5 w-5 text-sky-400" />}
+                        color="sky"
+                      />
+                    </div>
                   )}
 
                   {/* NEW: Web3 Pattern Identification - Displayed only if present */}
@@ -228,7 +278,7 @@ const getLanguageFromFilePath = ( filePath: string ): string =>
     case 'jsx':
       return 'javascript';
     case 'sol':
-      return 'typescript'; // soldity doesnt highlight stuff
+      return 'sol'; // soldity doesnt highlight stuff
     case 'json':
       return 'json';
     case 'md':

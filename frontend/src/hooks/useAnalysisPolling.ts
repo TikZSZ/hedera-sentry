@@ -50,6 +50,9 @@ export function useAnalysisPolling(repoUrl: string | null) {
         runId: null,
         allFiles: null
     });
+
+    const [scoringFileError,setScoringFileError] = useState()
+
     // useRef is used to store the interval ID so it can be cleared across re-renders
     const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -98,7 +101,7 @@ export function useAnalysisPolling(repoUrl: string | null) {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ 
                     repoUrl,
-                    runId:'2025-08-08T00:38:16.947Z' 
+                    // runId:'2025-08-08T05:04:17.329Z'
                 }),
             });
 
@@ -218,9 +221,11 @@ export function useAnalysisPolling(repoUrl: string | null) {
         } catch (err: any) {
             console.error("On-demand scoring failed:", err);
             // You could show a toast notification here
-            setState(prevState => ({ ...prevState, isScoringFile: false, error: err.message }));
+            setState(prevState => ({ ...prevState, isScoringFile: false }));
+            setScoringFileError(err.message)
+            return err.message as string
         }
     }, [state.runId, state.report]);
 
-    return { ...state, startAnalysis,scoreFile };
+    return { ...state, startAnalysis,scoreFile,scoringFileError };
 }
