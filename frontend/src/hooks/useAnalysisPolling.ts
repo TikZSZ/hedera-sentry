@@ -86,7 +86,7 @@ export function useAnalysisPolling(repoUrl: string | null,runId:string) {
         // Set the initial "loading" state for the UI
         setState({
             isLoading: true,
-            logHistory: [{ id: 1, message: 'Requesting analysis from server...', timestamp: new Date().toLocaleTimeString() }],
+            logHistory: [{ id: 1, message: 'Requesting analysis from server...', timestamp: new Date().toLocaleTimeString() },{ id: 2, message: 'May take a minute for servers to warmup', timestamp: new Date().toLocaleTimeString() }],
             error: null,
             report: null,
             runId: null,
@@ -94,7 +94,6 @@ export function useAnalysisPolling(repoUrl: string | null,runId:string) {
         });
 
         try {
-            
             // --- Step 1: Start the analysis job and get a runId ---
             const startResponse = await fetch(`${API_BASE_URL}/analysis`, {
                 method: 'POST',

@@ -15,7 +15,7 @@ import { cn } from '@/lib/utils';
 import { FileDetailView } from '../FileDetailView';
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels"; // NEW import
 import { Button } from '../ui/button';
-import { ScrollArea } from '@radix-ui/react-scroll-area';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 
 const SCORABLE_EXTENSIONS = new Set( [

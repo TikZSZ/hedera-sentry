@@ -50,10 +50,10 @@ export default function HomePage() {
     };
 
     return (
-        <div className="snap-y snap-mandatory h-screen overflow-y-scroll scroll-smooth bg-black">
+        <div className="snap-y snap-mandatory h-screen overflow-y-scroll scroll-smooth bg-black  px-[5%] md:px-0">
             
             {/* --- SECTION 1: HERO & CALL TO ACTION --- */}
-            <section className="relative snap-start h-screen flex flex-col items-center justify-center text-center px-6 text-white overflow-hidden">
+            <section className="relative snap-start min-h-screen flex flex-col items-center justify-center text-center px-6 text-white overflow-hidden">
                 <div className="absolute top-0 left-0 w-96 h-96 bg-emerald-900/50 rounded-full filter blur-3xl opacity-30 animate-blob"></div>
                 <div className="absolute bottom-0 right-0 w-96 h-96 bg-cyan-900/50 rounded-full filter blur-3xl opacity-30 animate-blob animation-delay-4000"></div>
 
@@ -105,7 +105,7 @@ export default function HomePage() {
             </section>
 
             {/* --- SECTION 2: HOW IT WORKS / PIPELINE --- */}
-            <section className="snap-start h-screen flex flex-col items-center justify-center px-6 bg-black text-white relative ">
+            <section className="snap-start min-h-screen flex flex-col items-center justify-center px-6 bg-black text-white relative ">
                 <h2 className="text-4xl font-bold mb-4 text-center">More Than a Linter. A True Second Opinion.</h2>
                 <p className="mb-12 text-lg text-zinc-400 max-w-2xl text-center">
                   Sentry provides insights that are normally only available from a seasoned Principal Engineer.
@@ -130,7 +130,7 @@ export default function HomePage() {
             </section>
 
             {/* --- SECTION 3: THE REWARD / REPORT PREVIEW --- */}
-            <section className="snap-start h-screen flex flex-col items-center justify-center px-6 bg-black text-white relative">
+            <section className="snap-start min-h-screen flex flex-col items-center justify-center md:px-6 md:pb-6 bg-black text-white z-20">
                 <h2 className="text-4xl font-bold mb-4 text-center">Receive an Expert-Level Scorecard</h2>
                 <p className="mb-12 text-lg text-zinc-400 max-w-2xl text-center">
                     Go beyond simple linting. Get a holistic, data-driven verdict on your project's quality and the engineer's skill.
@@ -138,7 +138,8 @@ export default function HomePage() {
                 <motion.div
                     initial={{ opacity: 0, y: 50, scale: 0.95 }}
                     whileInView={{ opacity: 1, y: 0, scale: 1 }}
-                    viewport={{ once: true, amount: 0.5 }}
+                    viewport={{ once: true, amount: 0.1 }}
+
                     transition={{ duration: 0.7 }}
                     className="w-full max-w-5xl"
                 >

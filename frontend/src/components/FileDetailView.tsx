@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import { editor } from 'monaco-editor'; // Import the main monaco editor type
 import { useMonacoDecorations, type ActiveHighlight } from '@/hooks/useMonacoDecorations'; // Import the new hook and type
 import { findMultiLineMatch } from "@/hooks/multiLineMatch";
+import { ScrollArea } from "./ui/scroll-area";
 
 
 const MetricCard = ( { label, value, color = 'default' }: { label: string; value: string | number, color?: 'emerald' | 'amber' | 'default' } ) =>
@@ -257,6 +258,7 @@ export const FileDetailView = ( { file, runId, onClear }: { file: ScoredFile; ru
                 scrollBeyondLastLine: false,
                 contextmenu: false,
               }}
+              className="min-h-[300px]"
             />
           )}
         </div>
