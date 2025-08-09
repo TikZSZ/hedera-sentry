@@ -70,12 +70,13 @@ async function startBackgroundAnalysis ( runId: string, repoUrl: string, descrip
                     } )
                     .filter( f => f.isFile ) // Ensure only files, not subdirectories
                     .sort( ( a, b ) => b.mtime.getTime() - a.mtime.getTime() ); // Sort descending by modified time
-
+                    
                 if ( files.length === 0 )
                 {
                     throw new Error( 'No Report Cache Found' )
                 } else
-                {
+                {   
+                    updateState( 'preparing', '✅ Cache Found' );
                     const mostRecentFile = files[ 0 ].file;
                     const mostRecentFilePath = path.join( reportPath, mostRecentFile );
 
@@ -96,7 +97,7 @@ async function startBackgroundAnalysis ( runId: string, repoUrl: string, descrip
             }
         } catch ( err )
         {
-            updateState( 'preparing', 'Cache not found, building new report' )
+
 
         }
 
@@ -172,33 +173,8 @@ app.post( '/analysis', async ( req, res ) =>
             logHistory: [ { id: 1, message: initialMessage, timestamp: new Date().toLocaleTimeString() } ],
         };
 
-        if ( runId )
-        {
-            const initialMessage = 'Run ID Provided Looking For Cache';
-            const initialState: RunState = {
-                runId,
-                repoUrl,
-                repoName,
-                status: 'preparing',
-                logHistory: [ { id: 1, message: initialMessage, timestamp: new Date().toLocaleTimeString() } ],
-            };
-            analysisStore.set( runId, initialState );
-            startBackgroundAnalysis( runId, repoUrl, '', updateState, true );
-        } else
-        {
-            runId = new Date().toISOString()
-            const initialMessage = 'Initiating analysis pipeline...';
-            const initialState: RunState = {
-                runId,
-                repoUrl,
-                repoName,
-                status: 'preparing',
-                logHistory: [ { id: 1, message: initialMessage, timestamp: new Date().toLocaleTimeString() } ],
-            };
-            analysisStore.set( runId, initialState );
-            startBackgroundAnalysis( new Date().toISOString(), repoUrl, '', updateState );
-        }
-
+        analysisStore.set( runId, initialState );
+        startBackgroundAnalysis( runId, repoUrl, '', updateState, true );
 
         // const filteredFiles = allFiles
         //     .filter( file => 

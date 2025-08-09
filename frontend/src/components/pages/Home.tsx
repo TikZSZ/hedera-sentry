@@ -45,7 +45,8 @@ export default function HomePage() {
         }
         setError("");
         setIsLoading(true);
-        navigate(`/analysis?repo=${encodeURIComponent(repoUrl)}`);
+        const runId = new Date().toISOString()
+        navigate(`/analysis?repo=${encodeURIComponent(repoUrl)}&runId=${runId}`);
     };
 
     return (

@@ -30,6 +30,7 @@ export default function AnalysisPage ()
 {
   const [ searchParams ] = useSearchParams();
   const repoUrl = searchParams.get( 'repo' );
+  const runId = searchParams.get( 'runId' );
 
   // The custom hook now manages all data fetching and state for the analysis
   const {
@@ -41,7 +42,7 @@ export default function AnalysisPage ()
     scoreFile,
     logHistory,
     isScoringFile // NEW: Get the loading state for on-demand scoring,
-  } = useAnalysisPolling( repoUrl );
+  } = useAnalysisPolling( repoUrl,runId );
 
   const [ isSidebarCollapsed, setIsSidebarCollapsed ] = useState( false );
 

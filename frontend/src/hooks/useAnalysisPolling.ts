@@ -41,7 +41,7 @@ export interface AnalysisState {
  * @returns An object containing the current analysis state (`isLoading`, `logHistory`, `error`, `report`)
  *          and a `startAnalysis` function to begin the process.
  */
-export function useAnalysisPolling(repoUrl: string | null) {
+export function useAnalysisPolling(repoUrl: string | null,runId:string) {
     const [state, setState] = useState<AnalysisState>({
         isLoading: false,
         logHistory: [],
@@ -101,7 +101,7 @@ export function useAnalysisPolling(repoUrl: string | null) {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ 
                     repoUrl,
-                    // runId:'2025-08-08T05:04:17.329Z'
+                    runId
                 }),
             });
 
@@ -110,8 +110,8 @@ export function useAnalysisPolling(repoUrl: string | null) {
                 throw new Error(errorData.error || `Failed to start analysis job (status ${startResponse.status}).`);
             }
 
-            const { runId, allFiles } = await startResponse.json();
-            if (!runId) {
+            let {  allFiles } = await startResponse.json();
+            if (!allFiles) {
                 throw new Error("Server did not return a valid runId.");
             }
             

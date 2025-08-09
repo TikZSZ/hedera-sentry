@@ -22,14 +22,13 @@ Avoid including language specific config files since the pipeline already consid
         -   Other files that seem relevant or revealing (services, classes) goes back to human reviewer perspective 
 
 3.  **The Application & Architecture (The Skeleton):**
-    -   How is the project structured? Select the files that define the overall architecture, such as the main entry point (\`main.tsx\`, \`App.tsx\`), the router, and any crucial global state managers, context providers, classes, services
+    -  How is the project structured? Select the files that define the overall architecture, such as the main entry point (\`main.tsx\`, \`App.tsx\`), the router, and any crucial global state managers, context providers, classes, services
 
 4.  **A Sample of Craftsmanship (The Polish):**
     -   Include a **small, representative sample** of other files to demonstrate overall quality. This can include one or two well-structured UI components that *use* the core logic, or a particularly clean utility file. Do not select every boilerplate component. If it fits in the idea of if u have seen 1 or 2 u have seen em all u can skip those types
 
 **Critical Rules:**
 -   **Vended Code:** If you suspect a folder is a third-party library, mark it with a comment: 'src/sdk/ # Potentially vended code'.
-- Return Full path to file as exactly shown in File Structure DO NOT omit any file path parts else it will be invalid
 
 **Project Context:**
 - Domain: {{primary_domain}}
