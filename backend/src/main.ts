@@ -620,15 +620,15 @@ export async function runAnalysisAndScoring ( repoUrl: string, client: AIClient,
   console.log( `  - Context Header Overhead       : ${report.summary.tokenSummary.contextOverheadPercentage} of final tokens` );
 
   // Step 3: Ask user for confirmation
-  if ( process.env[ 'NODE_ENV' ] !== 'production' )
-  {
-    const answer = await promptUser( '\nContinue to scoring? (yes/no): ' );
-    if ( answer.toLowerCase() !== 'yes' )
-    {
-      console.log( '\n❌ Scoring aborted by user.' );
-      throw new Error( '\n❌ Server aborted request.' )
-    }
-  }
+  // if ( process.env[ 'NODE_ENV' ] !== 'production' )
+  // {
+  //   const answer = await promptUser( '\nContinue to scoring? (yes/no): ' );
+  //   if ( answer.toLowerCase() !== 'yes' )
+  //   {
+  //     console.log( '\n❌ Scoring aborted by user.' );
+  //     throw new Error( '\n❌ Server aborted request.' )
+  //   }
+  // }
 
   // Step 4: Proceed with scoring
   const warnings = {

@@ -16,7 +16,9 @@ export abstract class BaseStrategy implements LanguageStrategy
     // Provide a default, reusable implementation for the fallback
     fallbackSplitter ( node: Parser.SyntaxNode, code: string, maxTokens: number, estimateTokens: ( text: string ) => number ): ChunkInfo[]
     {
-        console.warn( `[INFO] Node type '${node.type}' is indivisible or has no sub-nodes. Performing text-based split.`,code.length );
+        if(process.env.NODE_ENV !== "production"){
+            console.warn( `[INFO] Node type '${node.type}' is indivisible or has no sub-nodes. Performing text-based split.`,code.length );
+        }
 
         const chunks: ChunkInfo[] = [];
         const nodeText = node.text;
