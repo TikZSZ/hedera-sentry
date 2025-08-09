@@ -86,7 +86,7 @@ export function useAnalysisPolling(repoUrl: string | null,runId:string) {
         // Set the initial "loading" state for the UI
         setState({
             isLoading: true,
-            logHistory: [{ id: 1, message: 'Requesting analysis from server...', timestamp: new Date().toLocaleTimeString() },{ id: 2, message: 'May take a minute for servers to warmup', timestamp: new Date().toLocaleTimeString() }],
+            logHistory: [{ id: 1, message: 'Requesting analysis from server...', timestamp: new Date().toISOString() },{ id: 2, message: 'May take a minute for servers to warmup', timestamp: new Date().toISOString() }],
             error: null,
             report: null,
             runId: null,

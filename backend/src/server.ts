@@ -32,7 +32,7 @@ function updateRunState ( runId: string, status: RunState[ 'status' ], message: 
         currentState.logHistory.push( {
             id: currentState.logHistory.length + 1,
             message,
-            timestamp: new Date().toLocaleTimeString(),
+            timestamp: new Date().toISOString(),
         } );
     }
 }
@@ -170,7 +170,7 @@ app.post( '/analysis', async ( req, res ) =>
             repoUrl,
             repoName,
             status: 'preparing',
-            logHistory: [ { id: 1, message: initialMessage, timestamp: new Date().toLocaleTimeString() } ],
+            logHistory: [ { id: 1, message: initialMessage, timestamp: new Date().toISOString() } ],
         };
 
         analysisStore.set( runId, initialState );

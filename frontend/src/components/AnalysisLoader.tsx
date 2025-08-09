@@ -119,7 +119,7 @@ export function AnalysisLoader({ logHistory, isLoading, error }: AnalysisLoaderP
                                         {getIcon(index, logHistory.length)}
                                     </div>
                                     <div className="flex-grow">
-                                        <span className="text-zinc-500 mr-4">{log.timestamp}</span>
+                                        <span className="text-zinc-500 mr-4">{new Date(log.timestamp).toLocaleTimeString()}</span>
                                         <span className={
                                             isLastLog && isLoading ? "text-emerald-300 animate-pulse" :
                                             isLastLog && error ? "text-red-400" :
